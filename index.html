@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Result Automation System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { height: 12px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #a5b4fc; border-radius: 6px; border: 2px solid #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 6px; }
+        
+        /* FIXED CSS PRINT ENGINE
+           Separates single report card print from total merit list print cleanly
+        */
+        @media print {
+            body { background: #fff; color: #000; }
+            
+            /* Always hide these UI panels during any print action */
+            .no-print, #config-section, #subject-section, #table-section, header {
+                display: none !important;
+            }
+            
+            /* CONDITION A: If we are explicitly printing ONLY the single report card */
+            body.printing-single-card #merit-list-column {
+                display: none !important;
+            }
+            body.printing-single-card #report-card-column {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                border: none !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+            }
+            body.printing-single-card #report-card-column h2,
+            body.printing-single-card #report-card-column label,
+            body.printing-single-card #report-card-column select,
+            body.printing-single-card #report-card-column .no-print {
+                display: none !important;
+            }
+            body.printing-single-card #printable-report-card {
+                display: block !important;
+                border: none !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+
+            /* CONDITION B: If we are printing the Tabular Merit List */
+            body:not(.printing-single-card) #report-card-column {
+                display: none !important;
+            }
+            body:not(.printing-single-card) .print-full-width {
+                width: 100% !important;
+                max-width: 100% !important;
+                position: absolute; left: 0; top: 0;
+                display: block !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-slate-900">🎓 College Result Automation System</h1>
+            <p class="text-slate-500 mt-2">Precision Grading and Merit List Generator</p>
+        </header>
+
+        <div id="config-section" class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <h2 class="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2">Step 1: Basic Configurations</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Select Group</label>
+                    <select id="group-select" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="science">Science (বিজ্ঞান)</option>
+                        <option value="arts">Arts (মানবিক)</option>
+                        <option value="commerce">Commerce (ব্যবসায় শিক্ষা)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Number of Students</label>
+                    <input type="number" id="student-count" min="1" value="3" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Total Offered Subjects Count</label>
+                    <input type="number" id="subject-count" min="1" max="15" value="5" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button onclick="generateSubjectConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition duration-200 shadow-sm cursor-pointer">
+                    Configure Subject Details &rarr;
+                </button>
+            </div>
+        </div>
+
+        <div id="subject-section" class="hidden mt-8 bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <h2 class="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2">Step 2: Subject Marks Configuration</h2>
+            <div id="subject-inputs-container" class="space-y-4"></div>
+            <div class="mt-6 flex justify-between">
+                <button onclick="backToConfig()" class="text-slate-600 hover:text-slate-800 font-medium px-4 py-2">
+                    &larr; Back
+                </button>
+                <button onclick="generateMarksEntryTable()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-lg transition duration-200 shadow-sm cursor-pointer">
+                    Generate Data Entry Table 📊
+                </button>
+            </div>
+        </div>
+        
+        <div id="table-section" class="hidden mt-8 bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b pb-4 gap-4">
+                <div>
+                    <h2 class="text-xl font-semibold text-emerald-600">Step 3: Student Marks & Subject Allocation Sheet</h2>
+                    <p class="text-xs text-slate-400 mt-1">* Select <strong>Subject Role</strong> for each subject per student. Choose <strong>Not Taken</strong> if a student doesn't have that subject (e.g., Agriculture).</p>
+                </div>
+                <button onclick="processResults()" class="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold px-8 py-3 rounded-xl transition duration-200 shadow-md cursor-pointer tracking-wide">
+                    Calculate & Generate Results 🚀
+                </button>
+            </div>
+
+            <div id="top-scrollbar-container" class="overflow-x-auto custom-scrollbar mb-2 bg-slate-100 rounded-lg p-1 border border-slate-200">
+                <div id="top-scrollbar-linker" class="h-1"></div>
+            </div>
+
+            <div id="main-table-container" class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-lg shadow-inner bg-slate-50">
+                <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
+                    <thead id="table-header" class="bg-slate-100 text-slate-700 sticky top-0"></thead>
+                    <tbody id="table-body" class="divide-y divide-slate-200 bg-white"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="result-display-section" class="hidden mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div id="merit-list-column" class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md border border-slate-200 print-full-width">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 border-b pb-3">
+                    <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">🏆 Tabular Merit List</h2>
+                    <button onclick="printMeritListOnly()" class="no-print bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow flex items-center gap-1.5 cursor-pointer">
+                        📥 Export Merit List to PDF
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="p-3 text-center">Merit Position</th>
+                                <th class="p-3 text-center">Roll No</th>
+                                <th class="p-3 text-center">Total Marks</th>
+                                <th class="p-3 text-center">Final GPA</th>
+                                <th class="p-3 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="merit-list-tbody" class="divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="report-card-column" class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col">
+                <h2 class="text-xl font-bold text-slate-900 mb-2 no-print">📄 Student Report Card</h2>
+                <label class="text-xs font-semibold text-slate-500 uppercase mb-1 no-print">Select Student Roll</label>
+                <select id="report-card-selector" onchange="renderIndividualReportCard()" class="w-full p-2.5 mb-6 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium no-print">
+                </select>
+
+                <div id="printable-report-card" class="hidden bg-slate-50 p-4 border border-slate-300 rounded-lg flex-1">
+                    <div id="report-card-content-area">
+                        <div class="text-center border-b pb-3 mb-4">
+                            <h3 class="font-bold text-lg text-slate-900">ACADEMIC TRANSCRIPT</h3>
+                            <p class="text-xs text-slate-500 font-semibold">Group: <span id="card-group-name" class="uppercase"></span></p>
+                            <p class="text-sm font-bold text-indigo-600 mt-1">Roll Number: <span id="card-roll-no"></span></p>
+                        </div>
+                        <div class="space-y-3 text-xs" id="card-subject-rows"></div>
+                        <div class="mt-6 pt-3 border-t border-dashed border-slate-300 grid grid-cols-2 gap-2 text-sm text-center">
+                            <div class="p-2 bg-slate-100 rounded">
+                                <span class="block text-[10px] text-slate-500 uppercase font-medium">Total Score</span>
+                                <span class="font-bold text-slate-800 text-base" id="card-total-marks">0</span>
+                            </div>
+                            <div class="p-2 bg-indigo-50 rounded">
+                                <span class="block text-[10px] text-indigo-500 uppercase font-medium">GPA</span>
+                                <span class="font-bold text-indigo-700 text-base" id="card-final-gpa">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-center no-print">
+                        <button onclick="printSingleReportCard()" class="bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs px-4 py-2 rounded-lg transition shadow flex items-center gap-1 cursor-pointer">
+                            🖨️ Print / Save as PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="report-card-placeholder" class="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-6 border-2 border-dashed border-slate-200 rounded-lg no-print">
+                    <span>Select a student roll from above to display the transcript.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let appData = { group: '', studentCount: 0, subjectCount: 0, baseSubjects: [], flatSubjects: [], calculatedResults: [] };
+
+        function generateSubjectConfig() {
+            const group = document.getElementById('group-select').value;
+            const studentCount = parseInt(document.getElementById('student-count').value);
+            const subjectCount = parseInt(document.getElementById('subject-count').value);
+
+            if (!studentCount || studentCount < 1 || !subjectCount || subjectCount < 1) {
+                alert('Please enter valid inputs.'); return;
+            }
+
+            appData.group = group; appData.studentCount = studentCount; appData.subjectCount = subjectCount;
+            const container = document.getElementById('subject-inputs-container');
+            container.innerHTML = ''; 
+
+            const sampleNames = ["Bangla", "English", "Physics", "Chemistry", "Agriculture"];
+
+            for (let i = 1; i <= subjectCount; i++) {
+                const defaultName = sampleNames[i-1] || `Subject ${i}`;
+                const isBangla = defaultName.toLowerCase().includes("bangla");
+                
+                const subjectDiv = document.createElement('div');
+                subjectDiv.className = "grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 items-center";
+                subjectDiv.innerHTML = `
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase">Subject ${i} Name</label>
+                        <input type="text" id="sub-name-${i}" value="${defaultName}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase">CQ Total</label>
+                        <input type="number" id="sub-cq-${i}" value="${isBangla ? 70 : 50}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase">MCQ Total</label>
+                        <input type="number" id="sub-mcq-${i}" value="${isBangla ? 30 : 25}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase">Practical Total</label>
+                        <input type="number" id="sub-pr-${i}" value="${isBangla ? 0 : 25}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm">
+                    </div>
+                    <div class="flex items-center h-full mt-4 md:mt-0">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="sub-double-${i}" class="sr-only peer" ${i===1 || i===3 ? 'checked' : ''}>
+                            <div class="relative w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                            <span class="ms-2 text-xs font-medium text-slate-600">2 Papers?</span>
+                        </label>
+                    </div>
+                `;
+                container.appendChild(subjectDiv);
+            }
+            document.getElementById('config-section').classList.add('opacity-40', 'pointer-events-none');
+            document.getElementById('subject-section').classList.remove('hidden');
+        }
+
+        function backToConfig() {
+            document.getElementById('config-section').classList.remove('opacity-40', 'pointer-events-none');
+            document.getElementById('subject-section').classList.add('hidden');
+        }
+
+        function generateMarksEntryTable() {
+            appData.baseSubjects = []; appData.flatSubjects = [];
+            
+            for (let i = 1; i <= appData.subjectCount; i++) {
+                const name = document.getElementById(`sub-name-${i}`).value.trim() || `Subject ${i}`;
+                const cq = parseInt(document.getElementById(`sub-cq-${i}`).value) || 0;
+                const mcq = parseInt(document.getElementById(`sub-mcq-${i}`).value) || 0;
+                const pr = parseInt(document.getElementById(`sub-pr-${i}`).value) || 0;
+                const isDoublePaper = document.getElementById(`sub-double-${i}`).checked;
+
+                appData.baseSubjects.push({ id: i, name, cq, mcq, pr, isDoublePaper });
+
+                if (isDoublePaper) {
+                    appData.flatSubjects.push({ parentId: i, paperNum: 1, name: `${name} 1st`, cq, mcq, pr });
+                    appData.flatSubjects.push({ parentId: i, paperNum: 2, name: `${name} 2nd`, cq: name.toLowerCase().includes("bangla") ? 100 : cq, mcq: name.toLowerCase().includes("bangla") ? 0 : mcq, pr: name.toLowerCase().includes("bangla") ? 0 : pr });
+                } else {
+                    appData.flatSubjects.push({ parentId: i, paperNum: 1, name, cq, mcq, pr });
+                }
+            }
+
+            const tHead = document.getElementById('table-header');
+            let headerRow1 = `<tr class="bg-slate-200 text-slate-800 border-b border-slate-300"><th rowspan="2" class="p-3 text-center border-r border-slate-300 font-bold min-w-[220px]">Student & Subject Role</th>`;
+            let headerRow2 = `<tr>`;
+
+            appData.baseSubjects.forEach((sub) => {
+                const paperCount = appData.flatSubjects.filter(f => f.parentId === sub.id).length;
+                headerRow1 += `<th colspan="${paperCount * 3}" class="p-2 text-center border-r border-slate-300 font-bold bg-indigo-50 text-indigo-900 text-sm">
+                    ${sub.name}
+                </th>`;
+                
+                for(let p=1; p<=paperCount; p++) {
+                    headerRow2 += `
+                        <th class="p-1 text-center text-xs font-bold bg-slate-100 border-r border-slate-200 w-16 text-slate-600">CQ</th>
+                        <th class="p-1 text-center text-xs font-bold bg-slate-100 border-r border-slate-200 w-16 text-slate-600">MCQ</th>
+                        <th class="p-1 text-center text-xs font-bold bg-slate-100 border-r border-slate-300 w-16 text-slate-600">PR</th>
+                    `;
+                }
+            });
+            headerRow1 += `</tr>`; headerRow2 += `</tr>`;
+            tHead.innerHTML = headerRow1 + headerRow2;
+
+            const tBody = document.getElementById('table-body'); tBody.innerHTML = '';
+
+            for (let s = 1; s <= appData.studentCount; s++) {
+                let roleSelectorsHtml = '';
+                appData.baseSubjects.forEach(sub => {
+                    const isAgri = sub.name.toLowerCase().includes("agri") || sub.name.toLowerCase().includes("agriculture");
+                    roleSelectorsHtml += `
+                        <div class="flex items-center justify-between text-[11px] border-b pb-1 border-slate-200">
+                            <span class="font-medium truncate max-w-[90px]">${sub.name}:</span>
+                            <select id="role-s${s}-sub${sub.id}" onchange="toggleInputRowDisability(${s}, ${sub.id})" class="p-0.5 border border-slate-300 rounded text-xs bg-white">
+                                <option value="mandatory" ${!isAgri ? 'selected':''}>Mandatory</option>
+                                <option value="optional" ${isAgri ? 'selected':''}>Optional (4th)</option>
+                                <option value="not_taken">Not Taken</option>
+                            </select>
+                        </div>
+                    `;
+                });
+
+                let rowHtml = `<tr class="hover:bg-slate-50 transition">
+                    <td class="p-3 border-r border-slate-200 bg-slate-50 min-w-[240px]">
+                        <input type="text" id="student-roll-${s}" placeholder="Roll Number" class="w-full p-1.5 text-center font-bold border border-slate-300 rounded text-sm mb-2">
+                        <div class="space-y-1 bg-white p-2 rounded border border-slate-200 shadow-2xs">${roleSelectorsHtml}</div>
+                    </td>`;
+                
+                appData.flatSubjects.forEach((sub, idx) => {
+                    const cqDisabled = sub.cq === 0 ? 'disabled bg-slate-100' : '';
+                    const mcqDisabled = sub.mcq === 0 ? 'disabled bg-slate-100' : '';
+                    const prDisabled = sub.pr === 0 ? 'disabled bg-slate-100' : '';
+
+                    rowHtml += `
+                        <td class="p-1 border-r border-slate-200 text-center sub-block-s${s}-sub${sub.parentId}">
+                            <input type="number" id="marks-s${s}-idx${idx}-cq" data-max="${sub.cq}" placeholder="${sub.cq}" ${cqDisabled} class="w-16 p-1.5 text-center bg-white border border-slate-200 rounded text-sm">
+                        </td>
+                        <td class="p-1 border-r border-slate-200 text-center sub-block-s${s}-sub${sub.parentId}">
+                            <input type="number" id="marks-s${s}-idx${idx}-mcq" data-max="${sub.mcq}" placeholder="${sub.mcq}" ${mcqDisabled} class="w-16 p-1.5 text-center bg-white border border-slate-200 rounded text-sm">
+                        </td>
+                        <td class="p-1 border-r border-slate-300 text-center sub-block-s${s}-sub${sub.parentId}">
+                            <input type="number" id="marks-s${s}-idx${idx}-pr" data-max="${sub.pr}" placeholder="${sub.pr}" ${prDisabled} class="w-16 p-1.5 text-center bg-white border border-slate-200 rounded text-sm">
+                        </td>
+                    `;
+                });
+                rowHtml += `</tr>`; tBody.innerHTML += rowHtml;
+            }
+
+            document.getElementById('subject-section').classList.add('opacity-40', 'pointer-events-none');
+            document.getElementById('table-section').classList.remove('hidden');
+            adjustScrollbarLinker();
+        }
+
+        function toggleInputRowDisability(studentIdx, subId) {
+            const role = document.getElementById(`role-s${studentIdx}-sub${subId}`).value;
+            const elements = document.querySelectorAll(`.sub-block-s${studentIdx}-sub${subId} input`);
+            
+            elements.forEach(input => {
+                const maxMarksConfigured = parseInt(input.getAttribute('data-max')) || 0;
+                
+                if (role === 'not_taken') {
+                    input.value = ''; 
+                    input.disabled = true; 
+                    input.classList.add('bg-slate-200', 'opacity-50');
+                } else {
+                    if (maxMarksConfigured > 0) {
+                        input.disabled = false; 
+                        input.classList.remove('bg-slate-200', 'opacity-50');
+                    } else {
+                        input.disabled = true;
+                        input.classList.add('bg-slate-100');
+                    }
+                }
+            });
+        }
+
+        function adjustScrollbarLinker() {
+            setTimeout(() => {
+                const mainTableContainer = document.getElementById('main-table-container');
+                const topScrollbarContainer = document.getElementById('top-scrollbar-container');
+                document.getElementById('top-scrollbar-linker').style.width = mainTableContainer.scrollWidth + "px";
+                topScrollbarContainer.onscroll = function() { mainTableContainer.scrollLeft = topScrollbarContainer.scrollLeft; };
+                mainTableContainer.onscroll = function() { topScrollbarContainer.scrollLeft = mainTableContainer.scrollLeft; };
+            }, 100);
+        }
+
+        function getGradeInfo(obtained, total) {
+            if (total === 0) return { gp: 0, grade: 'N/A' };
+            const percentage = (obtained / total) * 100;
+            if (percentage >= 80) return { gp: 5.00, grade: 'A+' };
+            if (percentage >= 70) return { gp: 4.00, grade: 'A' };
+            if (percentage >= 60) return { gp: 3.50, grade: 'A-' };
+            if (percentage >= 50) return { gp: 3.00, grade: 'B' };
+            if (percentage >= 40) return { gp: 2.00, grade: 'C' };
+            if (percentage >= 33) return { gp: 1.00, grade: 'D' };
+            return { gp: 0, grade: 'F' };
+        }
+
+        function processResults() {
+            appData.calculatedResults = [];
+
+            for (let s = 1; s <= appData.studentCount; s++) {
+                const rollInput = document.getElementById(`student-roll-${s}`).value.trim();
+                if (!rollInput) { alert(`Error: Roll is empty on row ${s}`); return; }
+
+                let studentProfile = {
+                    roll: rollInput, isAbsentInMandatory: false, hasFailedMandatory: false,
+                    subjectBreakdown: [], totalMarksObtained: 0, finalGpa: 0.00
+                };
+
+                let totalGpaPoints = 0;
+                let mandatorySubjectsCalculatedCount = 0;
+                let fourthSubGpaBonus = 0;
+
+                for (let b = 0; b < appData.baseSubjects.length; b++) {
+                    const baseSub = appData.baseSubjects[b];
+                    const role = document.getElementById(`role-s${s}-sub${baseSub.id}`).value;
+
+                    if (role === 'not_taken') continue; 
+
+                    const isFourth = (role === 'optional');
+
+                    let associatedPapers = [];
+                    appData.flatSubjects.forEach((fs, index) => {
+                        if (fs.parentId === baseSub.id) associatedPapers.push({ config: fs, flatIdx: index });
+                    });
+
+                    let combinedObtainedCq = 0, combinedMaxCq = 0, isAbsentCq = true;
+                    let combinedObtainedMcq = 0, combinedMaxMcq = 0, isAbsentMcq = true;
+                    let combinedObtainedPr = 0, combinedMaxPr = 0, isAbsentPr = true;
+
+                    associatedPapers.forEach(paper => {
+                        const cqVal = document.getElementById(`marks-s${s}-idx${paper.flatIdx}-cq`).value;
+                        const mcqVal = document.getElementById(`marks-s${s}-idx${paper.flatIdx}-mcq`).value;
+                        const prVal = document.getElementById(`marks-s${s}-idx${paper.flatIdx}-pr`).value;
+
+                        if (paper.config.cq > 0) {
+                            combinedMaxCq += paper.config.cq;
+                            if (cqVal !== "") { combinedObtainedCq += parseFloat(cqVal); isAbsentCq = false; }
+                        } else { isAbsentCq = false; }
+
+                        if (paper.config.mcq > 0) {
+                            combinedMaxMcq += paper.config.mcq;
+                            if (mcqVal !== "") { combinedObtainedMcq += parseFloat(mcqVal); isAbsentMcq = false; }
+                        } else { isAbsentMcq = false; }
+
+                        if (paper.config.pr > 0) {
+                            combinedMaxPr += paper.config.pr;
+                            if (prVal !== "") { combinedObtainedPr += parseFloat(prVal); isAbsentPr = false; }
+                        } else { isAbsentPr = false; }
+                    });
+
+                    const isAbsentInSubject = (isAbsentCq || isAbsentMcq || isAbsentPr);
+                    if (isAbsentInSubject && !isFourth) studentProfile.isAbsentInMandatory = true;
+
+                    const passCq = combinedMaxCq === 0 || (combinedObtainedCq / combinedMaxCq >= 0.33);
+                    const passMcq = combinedMaxMcq === 0 || (combinedObtainedMcq / combinedMaxMcq >= 0.33);
+                    const passPr = combinedMaxPr === 0 || (combinedObtainedPr / combinedMaxPr >= 0.33);
+
+                    const subTotalObtained = combinedObtainedCq + combinedObtainedMcq + combinedObtainedPr;
+                    const subTotalMax = combinedMaxCq + combinedMaxMcq + combinedMaxPr;
+
+                    let gradeData = getGradeInfo(subTotalObtained, subTotalMax);
+                    
+                    if (!passCq || !passMcq || !passPr || isAbsentInSubject) {
+                        gradeData.gp = 0; gradeData.grade = 'F';
+                        if (!isFourth) studentProfile.hasFailedMandatory = true;
+                    }
+
+                    if (!isFourth) {
+                        studentProfile.totalMarksObtained += subTotalObtained;
+                        totalGpaPoints += gradeData.gp;
+                        mandatorySubjectsCalculatedCount++;
+                    } else {
+                        fourthSubGpaBonus = Math.max(0, gradeData.gp - 2);
+                    }
+
+                    studentProfile.subjectBreakdown.push({
+                        name: baseSub.name,
+                        cq: combinedMaxCq > 0 ? combinedObtainedCq : '-',
+                        mcq: combinedMaxMcq > 0 ? combinedObtainedMcq : '-',
+                        pr: combinedMaxPr > 0 ? combinedObtainedPr : '-',
+                        total: subTotalObtained, grade: gradeData.grade, gp: gradeData.gp, isFourth
+                    });
+                }
+
+                if (studentProfile.isAbsentInMandatory || studentProfile.hasFailedMandatory || mandatorySubjectsCalculatedCount === 0) {
+                    studentProfile.finalGpa = 0.00;
+                } else {
+                    let calculatedGpa = (totalGpaPoints + fourthSubGpaBonus) / mandatorySubjectsCalculatedCount;
+                    studentProfile.finalGpa = Math.min(5.00, parseFloat(calculatedGpa.toFixed(2)));
+                }
+                appData.calculatedResults.push(studentProfile);
+            }
+
+            appData.calculatedResults.sort((a, b) => {
+                if (b.finalGpa !== a.finalGpa) return b.finalGpa - a.finalGpa;
+                if (b.totalMarksObtained !== a.totalMarksObtained) return b.totalMarksObtained - a.totalMarksObtained;
+                return a.roll.localeCompare(b.roll, undefined, {numeric: true, sensitivity: 'base'});
+            });
+
+            renderOutputs();
+        }
+
+        function renderOutputs() {
+            document.getElementById('table-section').classList.add('opacity-40', 'pointer-events-none');
+            const meritTbody = document.getElementById('merit-list-tbody');
+            meritTbody.innerHTML = '';
+            let selectorOptionsHtml = `<option value="">-- Choose Roll --</option>`;
+
+            appData.calculatedResults.forEach((student, index) => {
+                const position = index + 1;
+                let badgeClass = "bg-emerald-100 text-emerald-800 font-bold";
+                let statusText = "PASSED";
+
+                if (student.isAbsentInMandatory) {
+                    badgeClass = "bg-slate-100 text-slate-700 font-medium"; statusText = "ABSENT";
+                } else if (student.finalGpa === 0) {
+                    badgeClass = "bg-rose-100 text-rose-800 font-bold"; statusText = "FAILED";
+                }
+
+                meritTbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="p-3 text-center font-bold text-indigo-600">${statusText === 'PASSED' ? `#${position}` : '-'}</td>
+                        <td class="p-3 text-center font-semibold text-slate-700">${student.roll}</td>
+                        <td class="p-3 text-center font-medium">${student.totalMarksObtained}</td>
+                        <td class="p-3 text-center font-bold text-slate-900">${student.finalGpa.toFixed(2)}</td>
+                        <td class="p-3 text-center"><span class="px-2 py-1 rounded text-xs ${badgeClass}">${statusText}</span></td>
+                    </tr>
+                `;
+                selectorOptionsHtml += `<option value="${student.roll}">Roll: ${student.roll} (${statusText})</option>`;
+            });
+
+            document.getElementById('report-card-selector').innerHTML = selectorOptionsHtml;
+            document.getElementById('result-display-section').classList.remove('hidden');
+            document.getElementById('result-display-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderIndividualReportCard() {
+            const chosenRoll = document.getElementById('report-card-selector').value;
+            const cardWrapper = document.getElementById('printable-report-card');
+            const placeholder = document.getElementById('report-card-placeholder');
+
+            if (!chosenRoll) { cardWrapper.classList.add('hidden'); placeholder.classList.remove('hidden'); return; }
+            placeholder.classList.add('hidden'); cardWrapper.classList.remove('hidden');
+
+            const student = appData.calculatedResults.find(r => r.roll === chosenRoll);
+            document.getElementById('card-group-name').innerText = appData.group;
+            document.getElementById('card-roll-no').innerText = student.roll;
+            document.getElementById('card-total-marks').innerText = student.totalMarksObtained;
+            document.getElementById('card-final-gpa').innerText = student.finalGpa.toFixed(2);
+
+            const rowsContainer = document.getElementById('card-subject-rows');
+            rowsContainer.innerHTML = '';
+
+            student.subjectBreakdown.forEach(sub => {
+                const tag4th = sub.isFourth ? `<span class="text-[9px] text-rose-600 font-bold bg-rose-50 px-1 rounded ml-1 border border-rose-200">4th Sub</span>` : '';
+                rowsContainer.innerHTML += `
+                    <div class="bg-white p-2.5 rounded border border-slate-200">
+                        <div class="flex justify-between items-center font-bold text-slate-800 border-b pb-1 mb-1.5">
+                            <div class="text-xs">${sub.name} ${tag4th}</div>
+                            <div class="text-sm text-indigo-600">${sub.grade} <span class="text-[10px] text-slate-400 font-normal">(GP: ${sub.gp.toFixed(2)})</span></div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1 text-[11px] text-slate-500 text-center">
+                            <div>CQ: <strong>${sub.cq}</strong></div><div>MCQ: <strong>${sub.mcq}</strong></div><div>PR: <strong>${sub.pr}</strong></div>
+                            <div class="border-l border-slate-200 font-semibold text-slate-700">Total: ${sub.total}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Clean Merit List Trigger
+        function printMeritListOnly() { window.print(); }
+
+        // Secure Report Card Trigger
+        function printSingleReportCard() {
+    
+    document.body.classList.add('printing-single-card');
+    
+   
+    setTimeout(() => {
+        window.print();
+        
+
+        setTimeout(() => {
+            document.body.classList.remove('printing-single-card');
+        }, 100);
+    }, 50);
+}
+
+    </script>
+</body>
+</html>

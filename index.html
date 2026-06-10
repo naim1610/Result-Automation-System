@@ -4,25 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>College Result Automation System</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <style>
         .custom-scrollbar::-webkit-scrollbar { height: 12px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #a5b4fc; border-radius: 6px; border: 2px solid #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 6px; }
         
-        /* FIXED CSS PRINT ENGINE
-           Separates single report card print from total merit list print cleanly
-        */
         @media print {
             body { background: #fff; color: #000; }
-            
-            /* Always hide these UI panels during any print action */
             .no-print, #config-section, #subject-section, #table-section, header {
                 display: none !important;
             }
-            
-            /* CONDITION A: If we are explicitly printing ONLY the single report card */
             body.printing-single-card #merit-list-column {
                 display: none !important;
             }
@@ -46,8 +43,9 @@
                 background: transparent !important;
                 padding: 0 !important;
             }
-
-            /* CONDITION B: If we are printing the Tabular Merit List */
+            body.printing-single-card #zip-loading-status {
+                display: none !important;
+            }
             body:not(.printing-single-card) #report-card-column {
                 display: none !important;
             }
@@ -156,10 +154,22 @@
             </div>
 
             <div id="report-card-column" class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col">
-                <h2 class="text-xl font-bold text-slate-900 mb-2 no-print">📄 Student Report Card</h2>
-                <label class="text-xs font-semibold text-slate-500 uppercase mb-1 no-print">Select Student Roll</label>
-                <select id="report-card-selector" onchange="renderIndividualReportCard()" class="w-full p-2.5 mb-6 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium no-print">
-                </select>
+                <div class="no-print border-b pb-3 mb-4">
+                    <h2 class="text-xl font-bold text-slate-900 mb-2">📄 Student Report Cards</h2>
+                    
+                    <button onclick="downloadAllTranscriptsAsZip()" id="btn-zip-download" class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow flex items-center justify-center gap-2 mb-4 cursor-pointer">
+                        📦 Download All Transcripts (.ZIP)
+                    </button>
+                    <div id="zip-loading-status" class="hidden text-xs text-center text-amber-600 font-semibold mb-3 animate-pulse">
+                        Generating PDFs and bundling package, please wait...
+                    </div>
+                    
+                    <label class="text-xs font-semibold text-slate-500 uppercase mb-1 block border-t pt-3 border-slate-100">Or Select Individual Roll</label>
+                    <select id="report-card-selector" onchange="renderIndividualReportCard()" class="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium">
+                    </select>
+                </div>
+
+                <div id="bulk-rendering-engine" style="position: fixed; left: -9999px; top: -9999px; width: 450px; background: white; padding: 20px; display: block !important; visibility: visible !important;"></div>
 
                 <div id="printable-report-card" class="hidden bg-slate-50 p-4 border border-slate-300 rounded-lg flex-1">
                     <div id="report-card-content-area">
@@ -528,6 +538,56 @@
             document.getElementById('result-display-section').scrollIntoView({ behavior: 'smooth' });
         }
 
+        function buildCardHtmlTemplate(student) {
+            let rowsHtml = '';
+            student.subjectBreakdown.forEach(sub => {
+                const tag4th = sub.isFourth ? `<span style="font-size: 9px; color: #dc2626; font-weight: bold; background-color: #fef2f2; padding: 2px 4px; border-radius: 4px; margin-left: 4px; border: 1px solid #fee2e2;">4th Sub</span>` : '';
+                rowsHtml += `
+                    <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
+                        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; clear: both; overflow: hidden;">
+                            <div style="font-size: 13px; font-weight: bold; float: left; color: #1e293b;">${sub.name} ${tag4th}</div>
+                            <div style="font-size: 14px; font-weight: bold; float: right; color: #4f46e5;">${sub.grade} <span style="font-size: 10px; color: #94a3b8; font-weight: normal;">(GP: ${sub.gp.toFixed(2)})</span></div>
+                        </div>
+                        <div style="width: 100%; display: table; font-size: 11px; color: #64748b; text-align: center; margin-top: 4px;">
+                            <div style="display: table-row;">
+                                <div style="display: table-cell; width: 25%;">CQ: <strong>${sub.cq}</strong></div>
+                                <div style="display: table-cell; width: 25%;">MCQ: <strong>${sub.mcq}</strong></div>
+                                <div style="display: table-cell; width: 25%;">PR: <strong>${sub.pr}</strong></div>
+                                <div style="display: table-cell; width: 25%; border-left: 1px solid #e2e8f0; font-weight: bold; color: #334155;">Total: ${sub.total}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            return `
+                <div style="font-family: Arial, sans-serif; color: #334155; padding: 10px; background-color: #ffffff;">
+                    <div style="text-align: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 16px;">
+                        <h3 style="font-weight: bold; font-size: 20px; color: #0f172a; margin: 0 0 4px 0;">ACADEMIC TRANSCRIPT</h3>
+                        <p style="font-size: 12px; color: #64748b; font-weight: 600; margin: 0; text-transform: uppercase;">Group: ${appData.group}</p>
+                        <p style="font-size: 15px; font-weight: bold; color: #4f46e5; margin: 6px 0 0 0;">Roll Number: ${student.roll}</p>
+                    </div>
+                    <div>${rowsHtml}</div>
+                    <div style="margin-top: 20px; padding-top: 12px; border-top: 1px dashed #cbd5e1; width: 100%; display: table; text-align: center;">
+                        <div style="display: table-row;">
+                            <div style="display: table-cell; width: 50%; padding-right: 5px;">
+                                <div style="padding: 10px; background-color: #f1f5f9; border-radius: 6px;">
+                                    <span style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Total Score</span>
+                                    <span style="font-weight: bold; color: #1e293b; font-size: 18px;">${student.totalMarksObtained}</span>
+                                </div>
+                            </div>
+                            <div style="display: table-cell; width: 50%; padding-left: 5px;">
+                                <div style="padding: 10px; background-color: #e0e7ff; border-radius: 6px;">
+                                    <span style="display: block; font-size: 10px; color: #4f46e5; text-transform: uppercase; margin-bottom: 2px;">GPA</span>
+                                    <span style="font-weight: bold; color: #3730a3; font-size: 18px;">${student.finalGpa.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderIndividualReportCard() {
             const chosenRoll = document.getElementById('report-card-selector').value;
             const cardWrapper = document.getElementById('printable-report-card');
@@ -562,25 +622,116 @@
             });
         }
 
-        // Clean Merit List Trigger
         function printMeritListOnly() { window.print(); }
 
-        // Secure Report Card Trigger
         function printSingleReportCard() {
-    
-    document.body.classList.add('printing-single-card');
-    
-   
-    setTimeout(() => {
-        window.print();
-        
+            document.body.classList.add('printing-single-card');
+            setTimeout(() => {
+                window.print();
+                setTimeout(() => {
+                    document.body.classList.remove('printing-single-card');
+                }, 100);
+            }, 50);
+        }
 
-        setTimeout(() => {
-            document.body.classList.remove('printing-single-card');
-        }, 100);
-    }, 50);
-}
+        // HTML2CANVAS + JSPDF HYBRID ENGINE (100% Cleaned & Fixed)
+        function downloadAllTranscriptsAsZip() {
+            if (!appData.calculatedResults || appData.calculatedResults.length === 0) {
+                alert("No results found to process!"); return;
+            }
 
+            const btn = document.getElementById('btn-zip-download');
+            const statusDiv = document.getElementById('zip-loading-status');
+            const engineContainer = document.getElementById('bulk-rendering-engine');
+
+            // UI Feedback state toggle
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'pointer-events-none');
+            statusDiv.classList.remove('hidden');
+
+            const zip = new JSZip();
+            const { jsPDF } = window.jspdf;
+            let currentIndex = 0;
+
+            function processNextStudent() {
+                if (currentIndex >= appData.calculatedResults.length) {
+                    // সমস্ত পিডিএফ সফলভাবে তৈরি হয়েছে -> এবার জিপ কম্পাইল হবে
+                    zip.generateAsync({ type: "blob" }).then(function(zippedContent) {
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = URL.createObjectURL(zippedContent);
+                        downloadLink.download = `All_Transcripts_${appData.group.toUpperCase()}_Group.zip`;
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+
+                        resetUI();
+                    }).catch(function(err) {
+                        console.error("ZIP packaging error: ", err);
+                        alert("Failed to pack the transcripts into a ZIP file.");
+                        resetUI();
+                    });
+                    return;
+                }
+
+                const student = appData.calculatedResults[currentIndex];
+                
+                // ১. কনটেইনারে ফ্রেশ মার্কশীট ডাটা ইনজেক্ট করুন
+                engineContainer.innerHTML = buildCardHtmlTemplate(student);
+
+                // ২. html2canvas রেন্ডার করার জন্য ব্রাউজারকে সামান্য বিরতি দিন
+                setTimeout(function() {
+                    html2canvas(engineContainer, { 
+                        scale: 2, 
+                        useCORS: true, 
+                        logging: false,
+                        backgroundColor: "#ffffff"
+                    }).then(function(canvas) {
+                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                        
+                        // ৩. একটি নতুন এ৪ সাইজ পিডিএফ ইনস্ট্যান্স তৈরি করুন
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+                        const imgWidth = 180; 
+                        const imgHeight = (canvas.height * imgWidth) / canvas.width; 
+
+                        // ৪. পিডিএফে ইমেজটি পুশ করুন
+                        pdf.addImage(imgData, 'JPEG', 15, 15, imgWidth, imgHeight);
+                        
+                        // ৫. ব্লব আউটপুট নিয়ে জিপে ফাইলটি সেভ করুন
+                        const pdfBlob = pdf.output('blob');
+                        zip.file(`Roll_${student.roll}_Transcript.pdf`, pdfBlob);
+
+                        // ৬. ইন্ডেক্স বাড়িয়ে পরবর্তী স্টুডেন্টের প্রসেস শুরু করুন
+                        currentIndex++;
+                        processNextStudent();
+                    }).catch(function(err) {
+    console.error("================================");
+    console.error("ROLL:", student.roll);
+    console.error("ERROR:", err);
+    console.error("STACK:", err.stack);
+    console.error("================================");
+
+    alert(
+        "Error processing Roll: " +
+        student.roll +
+        "\n\n" +
+        (err.message || err)
+    );
+
+    resetUI();
+});
+                }, 20);
+            }
+
+            function resetUI() {
+                engineContainer.innerHTML = '';
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'pointer-events-none');
+                statusDiv.classList.add('hidden');
+            }
+
+            // লুপটি স্টার্ট করুন
+            processNextStudent();
+        }
     </script>
 </body>
 </html>

@@ -1,737 +1,943 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>College Result Automation System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Result Automation System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700;800&family=Spectral:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1B2333; --navy:#1C2B4A; --navy-deep:#0F1828; --navy-soft:#3A4D74;
+  --paper:#EEF1F6; --card:#FFFFFF; --line:#DBE1EC; --line-soft:#E8ECF3;
+  --gold:#A9802F; --gold-soft:#F3E9D2; --gold-deep:#7C5E1F;
+  --success:#1E7A4C; --success-bg:#E5F4EA; --success-line:#BFE2CC;
+  --danger:#B43E37; --danger-bg:#FBEAE8; --danger-line:#F0C7C2;
+  --muted:#5C6478; --muted-2:#8B93A7;
+  --r-sm:6px; --r-md:10px; --r-lg:16px;
+  --shadow-sm:0 1px 2px rgba(15,24,40,.06), 0 1px 1px rgba(15,24,40,.04);
+  --shadow-md:0 8px 24px -8px rgba(15,24,40,.18);
+  --shadow-lg:0 24px 60px -20px rgba(15,24,40,.30);
+}
+*{box-sizing:border-box;}
+body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;}
+h1,h2,h3,.font-display{font-family:'Lora',serif;}
+.num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
 
-    <style>
-        .custom-scrollbar::-webkit-scrollbar { height: 12px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #a5b4fc; border-radius: 6px; border: 2px solid #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 6px; }
-        
-        @media print {
-            body { background: #fff; color: #000; }
-            .no-print, #config-section, #subject-section, #table-section, header {
-                display: none !important;
-            }
-            body.printing-single-card #merit-list-column {
-                display: none !important;
-            }
-            body.printing-single-card #report-card-column {
-                display: block !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                border: none !important;
-                padding: 0 !important;
-                box-shadow: none !important;
-            }
-            body.printing-single-card #report-card-column h2,
-            body.printing-single-card #report-card-column label,
-            body.printing-single-card #report-card-column select,
-            body.printing-single-card #report-card-column .no-print {
-                display: none !important;
-            }
-            body.printing-single-card #printable-report-card {
-                display: block !important;
-                border: none !important;
-                background: transparent !important;
-                padding: 0 !important;
-            }
-            body.printing-single-card #zip-loading-status {
-                display: none !important;
-            }
-            body:not(.printing-single-card) #report-card-column {
-                display: none !important;
-            }
-            body:not(.printing-single-card) .print-full-width {
-                width: 100% !important;
-                max-width: 100% !important;
-                position: absolute; left: 0; top: 0;
-                display: block !important;
-            }
-        }
-    </style>
+/* ---------- layout shell ---------- */
+.shell{max-width:1180px; margin:0 auto; padding:28px 20px 80px;}
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-deep) 100%);
+  color:#fff; border-radius:var(--r-lg); padding:22px 26px; box-shadow:var(--shadow-md);
+  position:relative; overflow:hidden;
+}
+.topbar::after{
+  content:""; position:absolute; right:-60px; top:-60px; width:220px; height:220px; border-radius:50%;
+  background:radial-gradient(circle at center, rgba(169,128,47,.35), transparent 70%);
+}
+.topbar-brand{display:flex; align-items:center; gap:14px; position:relative; z-index:1;}
+.brand-logo{width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; border:1px solid rgba(255,255,255,.25);}
+.brand-logo img{width:100%; height:100%; object-fit:cover;}
+.brand-title{font-family:'Lora',serif; font-weight:700; font-size:1.25rem; letter-spacing:.01em; line-height:1.2;}
+.brand-sub{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:#C9D2E6; margin-top:2px;}
+.topbar-right{position:relative; z-index:1; display:flex; gap:10px;}
+
+/* ---------- stepper ---------- */
+.stepper{display:flex; align-items:center; margin:30px 0 26px; gap:0;}
+.step-item{display:flex; align-items:center; flex:1;}
+.step-btn{
+  display:flex; align-items:center; gap:10px; background:none; border:none; cursor:pointer;
+  padding:8px 4px; font-family:'Inter',sans-serif; text-align:left;
+}
+.step-btn:disabled{cursor:not-allowed; opacity:.45;}
+.step-num{
+  width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-family:'Lora',serif; font-weight:700; font-size:.92rem; border:2px solid var(--line); color:var(--muted-2);
+  background:#fff; flex-shrink:0; transition:all .15s ease;
+}
+.step-item.active .step-num{background:var(--navy); border-color:var(--navy); color:#fff;}
+.step-item.done .step-num{background:var(--gold); border-color:var(--gold); color:#fff;}
+.step-label{display:flex; flex-direction:column; line-height:1.15;}
+.step-label .lbl-main{font-weight:700; font-size:.84rem; color:var(--ink);}
+.step-item:not(.active):not(.done) .lbl-main{color:var(--muted-2);}
+.step-label .lbl-sub{font-size:.68rem; color:var(--muted-2); letter-spacing:.03em;}
+.step-line{flex:1; height:2px; background:var(--line); margin:0 6px; position:relative; top:-12px;}
+.step-item.done + .step-line, .step-line.filled{background:var(--gold);}
+
+/* ---------- cards ---------- */
+.card{background:var(--card); border:1px solid var(--line-soft); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); padding:28px;}
+.card-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap;}
+.card-head h2{font-size:1.18rem; font-weight:600; color:var(--navy); margin:0; display:flex; align-items:center; gap:9px;}
+.card-head .eyebrow{font-size:.66rem; text-transform:uppercase; letter-spacing:.14em; color:var(--gold-deep); font-weight:700; display:block; margin-bottom:3px;}
+.hint{font-size:.76rem; color:var(--muted); margin-top:3px;}
+
+label.field-label{display:block; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px;}
+input[type=text], input[type=number], select, textarea{
+  font-family:'Inter',sans-serif; border:1.5px solid var(--line); border-radius:var(--r-sm); padding:9px 11px; font-size:.88rem;
+  background:#fff; color:var(--ink); outline:none; transition:border-color .12s, box-shadow .12s; width:100%;
+}
+input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus{border-color:var(--navy-soft); box-shadow:0 0 0 3px rgba(58,77,116,.13);}
+input[type=number]{-moz-appearance:textfield;}
+input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+
+/* clean stepper-number for config fields */
+.stepnum{display:flex; align-items:stretch; border:1.5px solid var(--line); border-radius:var(--r-sm); overflow:hidden; background:#fff;}
+.stepnum button{background:var(--paper); border:none; width:36px; font-size:1rem; font-weight:700; color:var(--navy); cursor:pointer; transition:background .12s;}
+.stepnum button:hover{background:var(--gold-soft); color:var(--gold-deep);}
+.stepnum input{border:none; text-align:center; font-weight:700; border-radius:0; box-shadow:none !important;}
+.stepnum input:focus{box-shadow:none !important;}
+
+.btn{font-family:'Inter',sans-serif; font-weight:600; font-size:.85rem; border-radius:var(--r-sm); padding:10px 18px; cursor:pointer; border:none; transition:transform .08s ease, box-shadow .15s ease, opacity .15s; display:inline-flex; align-items:center; gap:7px;}
+.btn:active{transform:translateY(1px);}
+.btn-primary{background:var(--navy); color:#fff; box-shadow:var(--shadow-sm);}
+.btn-primary:hover{background:var(--navy-deep);}
+.btn-gold{background:linear-gradient(135deg,var(--gold) 0%, var(--gold-deep) 100%); color:#fff; box-shadow:var(--shadow-sm);}
+.btn-gold:hover{filter:brightness(1.06);}
+.btn-ghost{background:transparent; color:var(--muted); border:1.5px solid var(--line);}
+.btn-ghost:hover{border-color:var(--navy-soft); color:var(--navy);}
+.btn-soft{background:var(--paper); color:var(--navy); border:1.5px solid var(--line);}
+.btn-soft:hover{background:var(--gold-soft); border-color:var(--gold); color:var(--gold-deep);}
+.btn:disabled{opacity:.45; cursor:not-allowed;}
+.btn-sm{padding:6px 12px; font-size:.74rem;}
+
+.pill{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:.68rem; font-weight:700; letter-spacing:.03em;}
+.pill-success{background:var(--success-bg); color:var(--success); border:1px solid var(--success-line);}
+.pill-danger{background:var(--danger-bg); color:var(--danger); border:1px solid var(--danger-line);}
+.pill-muted{background:var(--paper); color:var(--muted); border:1px solid var(--line);}
+
+.subj-card{background:var(--paper); border:1px solid var(--line-soft); border-radius:var(--r-md); padding:16px; display:grid; grid-template-columns:1.7fr .8fr .8fr .8fr auto; gap:14px; align-items:end;}
+@media(max-width:880px){.subj-card{grid-template-columns:1fr 1fr; }}
+
+.toggle{display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none;}
+.toggle input{display:none;}
+.toggle .track{width:36px; height:20px; border-radius:99px; background:#CBD3E1; position:relative; transition:.15s;}
+.toggle .track::after{content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:#fff; top:2px; left:2px; transition:.15s; box-shadow:0 1px 2px rgba(0,0,0,.25);}
+.toggle input:checked + .track{background:var(--navy);}
+.toggle input:checked + .track::after{transform:translateX(16px);}
+.toggle .tlabel{font-size:.74rem; font-weight:600; color:var(--muted);}
+
+table.entry{border-collapse:collapse; width:100%;}
+table.entry th, table.entry td{border:1px solid var(--line-soft);}
+table.entry thead th{background:var(--navy); color:#fff; font-weight:600; font-size:.72rem; letter-spacing:.03em; padding:8px 6px; position:sticky; top:0;}
+table.entry thead tr.sub-head th{background:#2A3A5C; font-size:.66rem; text-transform:uppercase; color:#CBD5EA;}
+table.entry tbody td{padding:5px; vertical-align:top;}
+table.entry tbody tr:nth-child(even) td{background:#FAFBFD;}
+.cell-input{width:60px; text-align:center; padding:6px 4px; font-size:.82rem; border-radius:5px;}
+.cell-input:disabled{background:#EEF0F4; color:#B6BCC9;}
+.roll-input{width:100%; text-align:center; font-weight:700; font-size:.85rem;}
+.role-row{display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:.7rem; border-bottom:1px dashed var(--line); padding:3px 0;}
+.role-row select{padding:3px 4px; font-size:.68rem; width:auto;}
+
+.bulk-row{display:grid; grid-template-columns:1.4fr 1fr 1fr auto; gap:10px; align-items:end; background:var(--paper); border:1px solid var(--line-soft); border-radius:var(--r-md); padding:12px 14px;}
+@media(max-width:760px){.bulk-row{grid-template-columns:1fr 1fr;}}
+
+.scrollx{overflow-x:auto; border:1px solid var(--line-soft); border-radius:var(--r-md);}
+.scrollx::-webkit-scrollbar{height:11px;}
+.scrollx::-webkit-scrollbar-thumb{background:#B9C2D6; border-radius:6px; border:2px solid var(--paper);}
+.scrollx::-webkit-scrollbar-track{background:var(--paper);}
+
+/* ---------- seal / signature element ---------- */
+.seal{
+  width:64px; height:64px; border-radius:50%; flex-shrink:0; position:relative;
+  background:radial-gradient(circle at 35% 30%, #C9A654, var(--gold-deep) 72%);
+  display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.25), inset 0 0 0 2px rgba(255,255,255,.35);
+}
+.seal::before{content:""; position:absolute; inset:5px; border-radius:50%; border:1.5px dashed rgba(255,255,255,.55);}
+.seal span{font-family:'Spectral',serif; font-weight:600; color:#fff; font-size:.92rem; letter-spacing:.02em; z-index:1;}
+
+/* ---------- merit + report card ---------- */
+.result-grid{display:grid; grid-template-columns:1.55fr 1fr; gap:22px; margin-top:18px;}
+@media(max-width:980px){.result-grid{grid-template-columns:1fr;}}
+.doc-letterhead{display:flex; align-items:center; gap:14px; border-bottom:2px solid var(--navy); padding-bottom:14px; margin-bottom:16px;}
+.doc-letterhead img{width:54px; height:54px; border-radius:50%; object-fit:cover; border:1px solid var(--line);}
+.doc-letterhead .lh-name{font-family:'Lora',serif; font-weight:700; font-size:1.15rem; color:var(--navy-deep);}
+.doc-letterhead .lh-meta{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; margin-top:2px;}
+
+table.merit{width:100%; border-collapse:collapse; font-size:.85rem;}
+table.merit thead th{background:var(--paper); color:var(--navy); font-weight:700; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; padding:10px; border-bottom:2px solid var(--navy);}
+table.merit td{padding:9px 10px; text-align:center; border-bottom:1px solid var(--line-soft);}
+table.merit tbody tr:hover td{background:var(--paper);}
+.rank-badge{display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:26px; border-radius:50%; font-weight:800; font-size:.78rem; background:var(--gold-soft); color:var(--gold-deep);}
+.rank-badge.r1{background:var(--gold); color:#fff;}
+
+.transcript-shell{background:var(--paper); border:1px solid var(--line); border-radius:var(--r-md); padding:18px;}
+.subj-line{background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:11px 13px; margin-bottom:9px;}
+.subj-line-head{display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line-soft); padding-bottom:6px; margin-bottom:6px;}
+.subj-line-head .sname{font-weight:700; font-size:.82rem; color:var(--ink);}
+.subj-line-head .sgrade{font-weight:800; font-size:.92rem; color:var(--navy);}
+.subj-line-stats{display:grid; grid-template-columns:repeat(4,1fr); text-align:center; font-size:.7rem; color:var(--muted);}
+.tag4{font-size:.6rem; font-weight:800; color:var(--danger); background:var(--danger-bg); padding:1px 5px; border-radius:4px; border:1px solid var(--danger-line); margin-left:5px;}
+.gpa-box-row{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line);}
+.gpa-box{background:#fff; border:1px solid var(--line-soft); border-radius:8px; padding:10px; text-align:center;}
+.gpa-box .gl{font-size:.62rem; text-transform:uppercase; letter-spacing:.07em; color:var(--muted-2); display:block;}
+.gpa-box .gv{font-weight:800; font-size:1.15rem; color:var(--navy-deep);}
+.gpa-box.gold .gv{color:var(--gold-deep);}
+
+/* archive */
+.archive-overlay{position:fixed; inset:0; background:rgba(15,24,40,.55); backdrop-filter:blur(2px); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:50; overflow-y:auto;}
+.archive-panel{background:#fff; width:100%; max-width:680px; border-radius:var(--r-lg); box-shadow:var(--shadow-lg); padding:26px;}
+.archive-result-item{border:1px solid var(--line-soft); border-radius:var(--r-md); padding:14px; margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:10px;}
+
+.notice{font-size:.72rem; color:var(--muted); background:var(--paper); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:8px 11px; display:flex; gap:7px; align-items:flex-start;}
+
+.hidden{display:none !important;}
+.opacity-lock{opacity:.45; pointer-events:none; filter:grayscale(.3);}
+
+@media print{
+  body{background:#fff;}
+  .no-print, .topbar, .stepper, #step1,#step2,#step3, .archive-overlay{display:none !important;}
+  body.printing-single-card #merit-col{display:none !important;}
+  body.printing-single-card #card-col{display:block !important; width:100%!important; max-width:100%!important; border:none!important; box-shadow:none!important; padding:0!important;}
+  body.printing-single-card #card-col .no-print{display:none !important;}
+  body.printing-single-card #report-card-wrap{display:block!important; border:none!important; background:#fff!important;}
+  body:not(.printing-single-card) #card-col{display:none !important;}
+  body:not(.printing-single-card) .result-grid{display:block!important;}
+  body:not(.printing-single-card) #merit-col{width:100%!important; max-width:100%!important;}
+}
+</style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-800 min-h-screen">
+<body>
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
-        <header class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-slate-900">🎓 College Result Automation System</h1>
-            <p class="text-slate-500 mt-2">Precision Grading and Merit List Generator</p>
-        </header>
+<div class="shell">
 
-        <div id="config-section" class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-            <h2 class="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2">Step 1: Basic Configurations</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Select Group</label>
-                    <select id="group-select" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="science">Science (বিজ্ঞান)</option>
-                        <option value="arts">Arts (মানবিক)</option>
-                        <option value="commerce">Commerce (ব্যবসায় শিক্ষা)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Number of Students</label>
-                    <input type="number" id="student-count" min="1" value="3" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Total Offered Subjects Count</label>
-                    <input type="number" id="subject-count" min="1" max="15" value="5" class="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-            </div>
-            <div class="mt-6 flex justify-end">
-                <button onclick="generateSubjectConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition duration-200 shadow-sm cursor-pointer">
-                    Configure Subject Details &rarr;
-                </button>
-            </div>
-        </div>
+  <!-- ===== Topbar / letterhead config ===== -->
+  <div class="topbar no-print">
+    <div class="topbar-brand">
+      <div class="brand-logo" id="topbar-logo-wrap">
+        <span id="topbar-logo-fallback" style="font-family:'Lora',serif;font-weight:700;font-size:1.1rem;">IN</span>
+        <img id="topbar-logo-img" class="hidden">
+      </div>
+      <div>
+        <div class="brand-title" id="topbar-inst-name">Your Institute Name</div>
+        <div class="brand-sub">Result Automation System</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-soft btn-sm" style="background:rgba(255,255,255,.1); color:#fff; border-color:rgba(255,255,255,.3);" onclick="openArchive()">🗂 Archive</button>
+    </div>
+  </div>
 
-        <div id="subject-section" class="hidden mt-8 bg-white p-6 rounded-xl shadow-md border border-slate-200">
-            <h2 class="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2">Step 2: Subject Marks Configuration</h2>
-            <div id="subject-inputs-container" class="space-y-4"></div>
-            <div class="mt-6 flex justify-between">
-                <button onclick="backToConfig()" class="text-slate-600 hover:text-slate-800 font-medium px-4 py-2">
-                    &larr; Back
-                </button>
-                <button onclick="generateMarksEntryTable()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-lg transition duration-200 shadow-sm cursor-pointer">
-                    Generate Data Entry Table 📊
-                </button>
-            </div>
-        </div>
-        
-        <div id="table-section" class="hidden mt-8 bg-white p-6 rounded-xl shadow-md border border-slate-200">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b pb-4 gap-4">
-                <div>
-                    <h2 class="text-xl font-semibold text-emerald-600">Step 3: Student Marks & Subject Allocation Sheet</h2>
-                    <p class="text-xs text-slate-400 mt-1">* Select <strong>Subject Role</strong> for each subject per student. Choose <strong>Not Taken</strong> if a student doesn't have that subject (e.g., Agriculture).</p>
-                </div>
-                <button onclick="processResults()" class="w-full md:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold px-8 py-3 rounded-xl transition duration-200 shadow-md cursor-pointer tracking-wide">
-                    Calculate & Generate Results 🚀
-                </button>
-            </div>
+  <!-- ===== Stepper ===== -->
+  <div class="stepper no-print" id="stepper"></div>
 
-            <div id="top-scrollbar-container" class="overflow-x-auto custom-scrollbar mb-2 bg-slate-100 rounded-lg p-1 border border-slate-200">
-                <div id="top-scrollbar-linker" class="h-1"></div>
-            </div>
-
-            <div id="main-table-container" class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-lg shadow-inner bg-slate-50">
-                <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
-                    <thead id="table-header" class="bg-slate-100 text-slate-700 sticky top-0"></thead>
-                    <tbody id="table-body" class="divide-y divide-slate-200 bg-white"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="result-display-section" class="hidden mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div id="merit-list-column" class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md border border-slate-200 print-full-width">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 border-b pb-3">
-                    <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">🏆 Tabular Merit List</h2>
-                    <button onclick="printMeritListOnly()" class="no-print bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-lg transition shadow flex items-center gap-1.5 cursor-pointer">
-                        📥 Export Merit List to PDF
-                    </button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
-                        <thead class="bg-slate-50 text-slate-600 font-semibold">
-                            <tr>
-                                <th class="p-3 text-center">Merit Position</th>
-                                <th class="p-3 text-center">Roll No</th>
-                                <th class="p-3 text-center">Total Marks</th>
-                                <th class="p-3 text-center">Final GPA</th>
-                                <th class="p-3 text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="merit-list-tbody" class="divide-y divide-slate-100 bg-white"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div id="report-card-column" class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex flex-col">
-                <div class="no-print border-b pb-3 mb-4">
-                    <h2 class="text-xl font-bold text-slate-900 mb-2">📄 Student Report Cards</h2>
-                    
-                    <button onclick="downloadAllTranscriptsAsZip()" id="btn-zip-download" class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow flex items-center justify-center gap-2 mb-4 cursor-pointer">
-                        📦 Download All Transcripts (.ZIP)
-                    </button>
-                    <div id="zip-loading-status" class="hidden text-xs text-center text-amber-600 font-semibold mb-3 animate-pulse">
-                        Generating PDFs and bundling package, please wait...
-                    </div>
-                    
-                    <label class="text-xs font-semibold text-slate-500 uppercase mb-1 block border-t pt-3 border-slate-100">Or Select Individual Roll</label>
-                    <select id="report-card-selector" onchange="renderIndividualReportCard()" class="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 font-medium">
-                    </select>
-                </div>
-
-                <div id="bulk-rendering-engine" style="position: fixed; left: -9999px; top: -9999px; width: 450px; background: white; padding: 20px; display: block !important; visibility: visible !important;"></div>
-
-                <div id="printable-report-card" class="hidden bg-slate-50 p-4 border border-slate-300 rounded-lg flex-1">
-                    <div id="report-card-content-area">
-                        <div class="text-center border-b pb-3 mb-4">
-                            <h3 class="font-bold text-lg text-slate-900">ACADEMIC TRANSCRIPT</h3>
-                            <p class="text-xs text-slate-500 font-semibold">Group: <span id="card-group-name" class="uppercase"></span></p>
-                            <p class="text-sm font-bold text-indigo-600 mt-1">Roll Number: <span id="card-roll-no"></span></p>
-                        </div>
-                        <div class="space-y-3 text-xs" id="card-subject-rows"></div>
-                        <div class="mt-6 pt-3 border-t border-dashed border-slate-300 grid grid-cols-2 gap-2 text-sm text-center">
-                            <div class="p-2 bg-slate-100 rounded">
-                                <span class="block text-[10px] text-slate-500 uppercase font-medium">Total Score</span>
-                                <span class="font-bold text-slate-800 text-base" id="card-total-marks">0</span>
-                            </div>
-                            <div class="p-2 bg-indigo-50 rounded">
-                                <span class="block text-[10px] text-indigo-500 uppercase font-medium">GPA</span>
-                                <span class="font-bold text-indigo-700 text-base" id="card-final-gpa">0.00</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mt-6 flex justify-center no-print">
-                        <button onclick="printSingleReportCard()" class="bg-slate-800 hover:bg-slate-900 text-white font-medium text-xs px-4 py-2 rounded-lg transition shadow flex items-center gap-1 cursor-pointer">
-                            🖨️ Print / Save as PDF
-                        </button>
-                    </div>
-                </div>
-                <div id="report-card-placeholder" class="flex-1 flex flex-col items-center justify-center text-center text-slate-400 p-6 border-2 border-dashed border-slate-200 rounded-lg no-print">
-                    <span>Select a student roll from above to display the transcript.</span>
-                </div>
-            </div>
-        </div>
+  <!-- ===== STEP 1 : Institute + basic config ===== -->
+  <section id="step1" class="card no-print">
+    <div class="card-head">
+      <div><span class="eyebrow">Step 1</span><h2>Institute &amp; Batch Setup</h2></div>
     </div>
 
-    <script>
-        let appData = { group: '', studentCount: 0, subjectCount: 0, baseSubjects: [], flatSubjects: [], calculatedResults: [] };
-
-        function generateSubjectConfig() {
-            const group = document.getElementById('group-select').value;
-            const studentCount = parseInt(document.getElementById('student-count').value);
-            const subjectCount = parseInt(document.getElementById('subject-count').value);
-
-            if (!studentCount || studentCount < 1 || !subjectCount || subjectCount < 1) {
-                alert('Please enter valid inputs.'); return;
-            }
-
-            appData.group = group; appData.studentCount = studentCount; appData.subjectCount = subjectCount;
-            const container = document.getElementById('subject-inputs-container');
-            container.innerHTML = ''; 
-
-            const sampleNames = ["Bangla", "English", "Physics", "Chemistry", "Agriculture"];
-
-            for (let i = 1; i <= subjectCount; i++) {
-                const defaultName = sampleNames[i-1] || `Subject ${i}`;
-                const isBangla = defaultName.toLowerCase().includes("bangla");
-                
-                const subjectDiv = document.createElement('div');
-                subjectDiv.className = "grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 items-center";
-                subjectDiv.innerHTML = `
-                    <div class="md:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-500 uppercase">Subject ${i} Name</label>
-                        <input type="text" id="sub-name-${i}" value="${defaultName}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase">CQ Total</label>
-                        <input type="number" id="sub-cq-${i}" value="${isBangla ? 70 : 50}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase">MCQ Total</label>
-                        <input type="number" id="sub-mcq-${i}" value="${isBangla ? 30 : 25}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase">Practical Total</label>
-                        <input type="number" id="sub-pr-${i}" value="${isBangla ? 0 : 25}" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white text-sm">
-                    </div>
-                    <div class="flex items-center h-full mt-4 md:mt-0">
-                        <label class="inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="sub-double-${i}" class="sr-only peer" ${i===1 || i===3 ? 'checked' : ''}>
-                            <div class="relative w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                            <span class="ms-2 text-xs font-medium text-slate-600">2 Papers?</span>
-                        </label>
-                    </div>
-                `;
-                container.appendChild(subjectDiv);
-            }
-            document.getElementById('config-section').classList.add('opacity-40', 'pointer-events-none');
-            document.getElementById('subject-section').classList.remove('hidden');
-        }
-
-        function backToConfig() {
-            document.getElementById('config-section').classList.remove('opacity-40', 'pointer-events-none');
-            document.getElementById('subject-section').classList.add('hidden');
-        }
-
-        function generateMarksEntryTable() {
-            appData.baseSubjects = []; appData.flatSubjects = [];
-            
-            for (let i = 1; i <= appData.subjectCount; i++) {
-                const name = document.getElementById(`sub-name-${i}`).value.trim() || `Subject ${i}`;
-                const cq = parseInt(document.getElementById(`sub-cq-${i}`).value) || 0;
-                const mcq = parseInt(document.getElementById(`sub-mcq-${i}`).value) || 0;
-                const pr = parseInt(document.getElementById(`sub-pr-${i}`).value) || 0;
-                const isDoublePaper = document.getElementById(`sub-double-${i}`).checked;
-
-                appData.baseSubjects.push({ id: i, name, cq, mcq, pr, isDoublePaper });
-
-                if (isDoublePaper) {
-                    appData.flatSubjects.push({ parentId: i, paperNum: 1, name: `${name} 1st`, cq, mcq, pr });
-                    appData.flatSubjects.push({ parentId: i, paperNum: 2, name: `${name} 2nd`, cq: name.toLowerCase().includes("bangla") ? 100 : cq, mcq: name.toLowerCase().includes("bangla") ? 0 : mcq, pr: name.toLowerCase().includes("bangla") ? 0 : pr });
-                } else {
-                    appData.flatSubjects.push({ parentId: i, paperNum: 1, name, cq, mcq, pr });
-                }
-            }
-
-            const tHead = document.getElementById('table-header');
-            let headerRow1 = `<tr class="bg-slate-200 text-slate-800 border-b border-slate-300"><th rowspan="2" class="p-3 text-center border-r border-slate-300 font-bold min-w-[220px]">Student & Subject Role</th>`;
-            let headerRow2 = `<tr>`;
-
-            appData.baseSubjects.forEach((sub) => {
-                const paperCount = appData.flatSubjects.filter(f => f.parentId === sub.id).length;
-                headerRow1 += `<th colspan="${paperCount * 3}" class="p-2 text-center border-r border-slate-300 font-bold bg-indigo-50 text-indigo-900 text-sm">
-                    ${sub.name}
-                </th>`;
-                
-                for(let p=1; p<=paperCount; p++) {
-                    headerRow2 += `
-                        <th class="p-1 text-center text-xs font-bold bg-slate-100 border-r border-slate-200 w-16 text-slate-600">CQ</th>
-                        <th class="p-1 text-center text-xs font-bold bg-slate-100 border-r border-slate-200 w-16 text-slate-600">MCQ</th>
-                        <th class="p-1 text-center text-xs font-bold bg-slate-100 border-r border-slate-300 w-16 text-slate-600">PR</th>
-                    `;
-                }
-            });
-            headerRow1 += `</tr>`; headerRow2 += `</tr>`;
-            tHead.innerHTML = headerRow1 + headerRow2;
-
-            const tBody = document.getElementById('table-body'); tBody.innerHTML = '';
-
-            for (let s = 1; s <= appData.studentCount; s++) {
-                let roleSelectorsHtml = '';
-                appData.baseSubjects.forEach(sub => {
-                    const isAgri = sub.name.toLowerCase().includes("agri") || sub.name.toLowerCase().includes("agriculture");
-                    roleSelectorsHtml += `
-                        <div class="flex items-center justify-between text-[11px] border-b pb-1 border-slate-200">
-                            <span class="font-medium truncate max-w-[90px]">${sub.name}:</span>
-                            <select id="role-s${s}-sub${sub.id}" onchange="toggleInputRowDisability(${s}, ${sub.id})" class="p-0.5 border border-slate-300 rounded text-xs bg-white">
-                                <option value="mandatory" ${!isAgri ? 'selected':''}>Mandatory</option>
-                                <option value="optional" ${isAgri ? 'selected':''}>Optional (4th)</option>
-                                <option value="not_taken">Not Taken</option>
-                            </select>
-                        </div>
-                    `;
-                });
-
-                let rowHtml = `<tr class="hover:bg-slate-50 transition">
-                    <td class="p-3 border-r border-slate-200 bg-slate-50 min-w-[240px]">
-                        <input type="text" id="student-roll-${s}" placeholder="Roll Number" class="w-full p-1.5 text-center font-bold border border-slate-300 rounded text-sm mb-2">
-                        <div class="space-y-1 bg-white p-2 rounded border border-slate-200 shadow-2xs">${roleSelectorsHtml}</div>
-                    </td>`;
-                
-                appData.flatSubjects.forEach((sub, idx) => {
-                    const cqDisabled = sub.cq === 0 ? 'disabled bg-slate-100' : '';
-                    const mcqDisabled = sub.mcq === 0 ? 'disabled bg-slate-100' : '';
-                    const prDisabled = sub.pr === 0 ? 'disabled bg-slate-100' : '';
-
-                    rowHtml += `
-                        <td class="p-1 border-r border-slate-200 text-center sub-block-s${s}-sub${sub.parentId}">
-                            <input type="number" id="marks-s${s}-idx${idx}-cq" data-max="${sub.cq}" placeholder="${sub.cq}" ${cqDisabled} class="w-16 p-1.5 text-center bg-white border border-slate-200 rounded text-sm">
-                        </td>
-                        <td class="p-1 border-r border-slate-200 text-center sub-block-s${s}-sub${sub.parentId}">
-                            <input type="number" id="marks-s${s}-idx${idx}-mcq" data-max="${sub.mcq}" placeholder="${sub.mcq}" ${mcqDisabled} class="w-16 p-1.5 text-center bg-white border border-slate-200 rounded text-sm">
-                        </td>
-                        <td class="p-1 border-r border-slate-300 text-center sub-block-s${s}-sub${sub.parentId}">
-                            <input type="number" id="marks-s${s}-idx${idx}-pr" data-max="${sub.pr}" placeholder="${sub.pr}" ${prDisabled} class="w-16 p-1.5 text-center bg-white border border-slate-200 rounded text-sm">
-                        </td>
-                    `;
-                });
-                rowHtml += `</tr>`; tBody.innerHTML += rowHtml;
-            }
-
-            document.getElementById('subject-section').classList.add('opacity-40', 'pointer-events-none');
-            document.getElementById('table-section').classList.remove('hidden');
-            adjustScrollbarLinker();
-        }
-
-        function toggleInputRowDisability(studentIdx, subId) {
-            const role = document.getElementById(`role-s${studentIdx}-sub${subId}`).value;
-            const elements = document.querySelectorAll(`.sub-block-s${studentIdx}-sub${subId} input`);
-            
-            elements.forEach(input => {
-                const maxMarksConfigured = parseInt(input.getAttribute('data-max')) || 0;
-                
-                if (role === 'not_taken') {
-                    input.value = ''; 
-                    input.disabled = true; 
-                    input.classList.add('bg-slate-200', 'opacity-50');
-                } else {
-                    if (maxMarksConfigured > 0) {
-                        input.disabled = false; 
-                        input.classList.remove('bg-slate-200', 'opacity-50');
-                    } else {
-                        input.disabled = true;
-                        input.classList.add('bg-slate-100');
-                    }
-                }
-            });
-        }
-
-        function adjustScrollbarLinker() {
-            setTimeout(() => {
-                const mainTableContainer = document.getElementById('main-table-container');
-                const topScrollbarContainer = document.getElementById('top-scrollbar-container');
-                document.getElementById('top-scrollbar-linker').style.width = mainTableContainer.scrollWidth + "px";
-                topScrollbarContainer.onscroll = function() { mainTableContainer.scrollLeft = topScrollbarContainer.scrollLeft; };
-                mainTableContainer.onscroll = function() { topScrollbarContainer.scrollLeft = mainTableContainer.scrollLeft; };
-            }, 100);
-        }
-
-        function getGradeInfo(obtained, total) {
-            if (total === 0) return { gp: 0, grade: 'N/A' };
-            const percentage = (obtained / total) * 100;
-            if (percentage >= 80) return { gp: 5.00, grade: 'A+' };
-            if (percentage >= 70) return { gp: 4.00, grade: 'A' };
-            if (percentage >= 60) return { gp: 3.50, grade: 'A-' };
-            if (percentage >= 50) return { gp: 3.00, grade: 'B' };
-            if (percentage >= 40) return { gp: 2.00, grade: 'C' };
-            if (percentage >= 33) return { gp: 1.00, grade: 'D' };
-            return { gp: 0, grade: 'F' };
-        }
-
-        function processResults() {
-            appData.calculatedResults = [];
-
-            for (let s = 1; s <= appData.studentCount; s++) {
-                const rollInput = document.getElementById(`student-roll-${s}`).value.trim();
-                if (!rollInput) { alert(`Error: Roll is empty on row ${s}`); return; }
-
-                let studentProfile = {
-                    roll: rollInput, isAbsentInMandatory: false, hasFailedMandatory: false,
-                    subjectBreakdown: [], totalMarksObtained: 0, finalGpa: 0.00
-                };
-
-                let totalGpaPoints = 0;
-                let mandatorySubjectsCalculatedCount = 0;
-                let fourthSubGpaBonus = 0;
-
-                for (let b = 0; b < appData.baseSubjects.length; b++) {
-                    const baseSub = appData.baseSubjects[b];
-                    const role = document.getElementById(`role-s${s}-sub${baseSub.id}`).value;
-
-                    if (role === 'not_taken') continue; 
-
-                    const isFourth = (role === 'optional');
-
-                    let associatedPapers = [];
-                    appData.flatSubjects.forEach((fs, index) => {
-                        if (fs.parentId === baseSub.id) associatedPapers.push({ config: fs, flatIdx: index });
-                    });
-
-                    let combinedObtainedCq = 0, combinedMaxCq = 0, isAbsentCq = true;
-                    let combinedObtainedMcq = 0, combinedMaxMcq = 0, isAbsentMcq = true;
-                    let combinedObtainedPr = 0, combinedMaxPr = 0, isAbsentPr = true;
-
-                    associatedPapers.forEach(paper => {
-                        const cqVal = document.getElementById(`marks-s${s}-idx${paper.flatIdx}-cq`).value;
-                        const mcqVal = document.getElementById(`marks-s${s}-idx${paper.flatIdx}-mcq`).value;
-                        const prVal = document.getElementById(`marks-s${s}-idx${paper.flatIdx}-pr`).value;
-
-                        if (paper.config.cq > 0) {
-                            combinedMaxCq += paper.config.cq;
-                            if (cqVal !== "") { combinedObtainedCq += parseFloat(cqVal); isAbsentCq = false; }
-                        } else { isAbsentCq = false; }
-
-                        if (paper.config.mcq > 0) {
-                            combinedMaxMcq += paper.config.mcq;
-                            if (mcqVal !== "") { combinedObtainedMcq += parseFloat(mcqVal); isAbsentMcq = false; }
-                        } else { isAbsentMcq = false; }
-
-                        if (paper.config.pr > 0) {
-                            combinedMaxPr += paper.config.pr;
-                            if (prVal !== "") { combinedObtainedPr += parseFloat(prVal); isAbsentPr = false; }
-                        } else { isAbsentPr = false; }
-                    });
-
-                    const isAbsentInSubject = (isAbsentCq || isAbsentMcq || isAbsentPr);
-                    if (isAbsentInSubject && !isFourth) studentProfile.isAbsentInMandatory = true;
-
-                    const passCq = combinedMaxCq === 0 || (combinedObtainedCq / combinedMaxCq >= 0.33);
-                    const passMcq = combinedMaxMcq === 0 || (combinedObtainedMcq / combinedMaxMcq >= 0.33);
-                    const passPr = combinedMaxPr === 0 || (combinedObtainedPr / combinedMaxPr >= 0.33);
-
-                    const subTotalObtained = combinedObtainedCq + combinedObtainedMcq + combinedObtainedPr;
-                    const subTotalMax = combinedMaxCq + combinedMaxMcq + combinedMaxPr;
-
-                    let gradeData = getGradeInfo(subTotalObtained, subTotalMax);
-                    
-                    if (!passCq || !passMcq || !passPr || isAbsentInSubject) {
-                        gradeData.gp = 0; gradeData.grade = 'F';
-                        if (!isFourth) studentProfile.hasFailedMandatory = true;
-                    }
-
-                    if (!isFourth) {
-                        studentProfile.totalMarksObtained += subTotalObtained;
-                        totalGpaPoints += gradeData.gp;
-                        mandatorySubjectsCalculatedCount++;
-                    } else {
-                        fourthSubGpaBonus = Math.max(0, gradeData.gp - 2);
-                    }
-
-                    studentProfile.subjectBreakdown.push({
-                        name: baseSub.name,
-                        cq: combinedMaxCq > 0 ? combinedObtainedCq : '-',
-                        mcq: combinedMaxMcq > 0 ? combinedObtainedMcq : '-',
-                        pr: combinedMaxPr > 0 ? combinedObtainedPr : '-',
-                        total: subTotalObtained, grade: gradeData.grade, gp: gradeData.gp, isFourth
-                    });
-                }
-
-                if (studentProfile.isAbsentInMandatory || studentProfile.hasFailedMandatory || mandatorySubjectsCalculatedCount === 0) {
-                    studentProfile.finalGpa = 0.00;
-                } else {
-                    let calculatedGpa = (totalGpaPoints + fourthSubGpaBonus) / mandatorySubjectsCalculatedCount;
-                    studentProfile.finalGpa = Math.min(5.00, parseFloat(calculatedGpa.toFixed(2)));
-                }
-                appData.calculatedResults.push(studentProfile);
-            }
-
-            appData.calculatedResults.sort((a, b) => {
-                if (b.finalGpa !== a.finalGpa) return b.finalGpa - a.finalGpa;
-                if (b.totalMarksObtained !== a.totalMarksObtained) return b.totalMarksObtained - a.totalMarksObtained;
-                return a.roll.localeCompare(b.roll, undefined, {numeric: true, sensitivity: 'base'});
-            });
-
-            renderOutputs();
-        }
-
-        function renderOutputs() {
-            document.getElementById('table-section').classList.add('opacity-40', 'pointer-events-none');
-            const meritTbody = document.getElementById('merit-list-tbody');
-            meritTbody.innerHTML = '';
-            let selectorOptionsHtml = `<option value="">-- Choose Roll --</option>`;
-
-            appData.calculatedResults.forEach((student, index) => {
-                const position = index + 1;
-                let badgeClass = "bg-emerald-100 text-emerald-800 font-bold";
-                let statusText = "PASSED";
-
-                if (student.isAbsentInMandatory) {
-                    badgeClass = "bg-slate-100 text-slate-700 font-medium"; statusText = "ABSENT";
-                } else if (student.finalGpa === 0) {
-                    badgeClass = "bg-rose-100 text-rose-800 font-bold"; statusText = "FAILED";
-                }
-
-                meritTbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b border-slate-100">
-                        <td class="p-3 text-center font-bold text-indigo-600">${statusText === 'PASSED' ? `#${position}` : '-'}</td>
-                        <td class="p-3 text-center font-semibold text-slate-700">${student.roll}</td>
-                        <td class="p-3 text-center font-medium">${student.totalMarksObtained}</td>
-                        <td class="p-3 text-center font-bold text-slate-900">${student.finalGpa.toFixed(2)}</td>
-                        <td class="p-3 text-center"><span class="px-2 py-1 rounded text-xs ${badgeClass}">${statusText}</span></td>
-                    </tr>
-                `;
-                selectorOptionsHtml += `<option value="${student.roll}">Roll: ${student.roll} (${statusText})</option>`;
-            });
-
-            document.getElementById('report-card-selector').innerHTML = selectorOptionsHtml;
-            document.getElementById('result-display-section').classList.remove('hidden');
-            document.getElementById('result-display-section').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function buildCardHtmlTemplate(student) {
-            let rowsHtml = '';
-            student.subjectBreakdown.forEach(sub => {
-                const tag4th = sub.isFourth ? `<span style="font-size: 9px; color: #dc2626; font-weight: bold; background-color: #fef2f2; padding: 2px 4px; border-radius: 4px; margin-left: 4px; border: 1px solid #fee2e2;">4th Sub</span>` : '';
-                rowsHtml += `
-                    <div style="background-color: #ffffff; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
-                        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; clear: both; overflow: hidden;">
-                            <div style="font-size: 13px; font-weight: bold; float: left; color: #1e293b;">${sub.name} ${tag4th}</div>
-                            <div style="font-size: 14px; font-weight: bold; float: right; color: #4f46e5;">${sub.grade} <span style="font-size: 10px; color: #94a3b8; font-weight: normal;">(GP: ${sub.gp.toFixed(2)})</span></div>
-                        </div>
-                        <div style="width: 100%; display: table; font-size: 11px; color: #64748b; text-align: center; margin-top: 4px;">
-                            <div style="display: table-row;">
-                                <div style="display: table-cell; width: 25%;">CQ: <strong>${sub.cq}</strong></div>
-                                <div style="display: table-cell; width: 25%;">MCQ: <strong>${sub.mcq}</strong></div>
-                                <div style="display: table-cell; width: 25%;">PR: <strong>${sub.pr}</strong></div>
-                                <div style="display: table-cell; width: 25%; border-left: 1px solid #e2e8f0; font-weight: bold; color: #334155;">Total: ${sub.total}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            return `
-                <div style="font-family: Arial, sans-serif; color: #334155; padding: 10px; background-color: #ffffff;">
-                    <div style="text-align: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 16px;">
-                        <h3 style="font-weight: bold; font-size: 20px; color: #0f172a; margin: 0 0 4px 0;">ACADEMIC TRANSCRIPT</h3>
-                        <p style="font-size: 12px; color: #64748b; font-weight: 600; margin: 0; text-transform: uppercase;">Group: ${appData.group}</p>
-                        <p style="font-size: 15px; font-weight: bold; color: #4f46e5; margin: 6px 0 0 0;">Roll Number: ${student.roll}</p>
-                    </div>
-                    <div>${rowsHtml}</div>
-                    <div style="margin-top: 20px; padding-top: 12px; border-top: 1px dashed #cbd5e1; width: 100%; display: table; text-align: center;">
-                        <div style="display: table-row;">
-                            <div style="display: table-cell; width: 50%; padding-right: 5px;">
-                                <div style="padding: 10px; background-color: #f1f5f9; border-radius: 6px;">
-                                    <span style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Total Score</span>
-                                    <span style="font-weight: bold; color: #1e293b; font-size: 18px;">${student.totalMarksObtained}</span>
-                                </div>
-                            </div>
-                            <div style="display: table-cell; width: 50%; padding-left: 5px;">
-                                <div style="padding: 10px; background-color: #e0e7ff; border-radius: 6px;">
-                                    <span style="display: block; font-size: 10px; color: #4f46e5; text-transform: uppercase; margin-bottom: 2px;">GPA</span>
-                                    <span style="font-weight: bold; color: #3730a3; font-size: 18px;">${student.finalGpa.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderIndividualReportCard() {
-            const chosenRoll = document.getElementById('report-card-selector').value;
-            const cardWrapper = document.getElementById('printable-report-card');
-            const placeholder = document.getElementById('report-card-placeholder');
-
-            if (!chosenRoll) { cardWrapper.classList.add('hidden'); placeholder.classList.remove('hidden'); return; }
-            placeholder.classList.add('hidden'); cardWrapper.classList.remove('hidden');
-
-            const student = appData.calculatedResults.find(r => r.roll === chosenRoll);
-            document.getElementById('card-group-name').innerText = appData.group;
-            document.getElementById('card-roll-no').innerText = student.roll;
-            document.getElementById('card-total-marks').innerText = student.totalMarksObtained;
-            document.getElementById('card-final-gpa').innerText = student.finalGpa.toFixed(2);
-
-            const rowsContainer = document.getElementById('card-subject-rows');
-            rowsContainer.innerHTML = '';
-
-            student.subjectBreakdown.forEach(sub => {
-                const tag4th = sub.isFourth ? `<span class="text-[9px] text-rose-600 font-bold bg-rose-50 px-1 rounded ml-1 border border-rose-200">4th Sub</span>` : '';
-                rowsContainer.innerHTML += `
-                    <div class="bg-white p-2.5 rounded border border-slate-200">
-                        <div class="flex justify-between items-center font-bold text-slate-800 border-b pb-1 mb-1.5">
-                            <div class="text-xs">${sub.name} ${tag4th}</div>
-                            <div class="text-sm text-indigo-600">${sub.grade} <span class="text-[10px] text-slate-400 font-normal">(GP: ${sub.gp.toFixed(2)})</span></div>
-                        </div>
-                        <div class="grid grid-cols-4 gap-1 text-[11px] text-slate-500 text-center">
-                            <div>CQ: <strong>${sub.cq}</strong></div><div>MCQ: <strong>${sub.mcq}</strong></div><div>PR: <strong>${sub.pr}</strong></div>
-                            <div class="border-l border-slate-200 font-semibold text-slate-700">Total: ${sub.total}</div>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function printMeritListOnly() { window.print(); }
-
-        function printSingleReportCard() {
-            document.body.classList.add('printing-single-card');
-            setTimeout(() => {
-                window.print();
-                setTimeout(() => {
-                    document.body.classList.remove('printing-single-card');
-                }, 100);
-            }, 50);
-        }
-
-        // HTML2CANVAS + JSPDF HYBRID ENGINE (100% Cleaned & Fixed)
-        function downloadAllTranscriptsAsZip() {
-            if (!appData.calculatedResults || appData.calculatedResults.length === 0) {
-                alert("No results found to process!"); return;
-            }
-
-            const btn = document.getElementById('btn-zip-download');
-            const statusDiv = document.getElementById('zip-loading-status');
-            const engineContainer = document.getElementById('bulk-rendering-engine');
-
-            // UI Feedback state toggle
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'pointer-events-none');
-            statusDiv.classList.remove('hidden');
-
-            const zip = new JSZip();
-            const { jsPDF } = window.jspdf;
-            let currentIndex = 0;
-
-            function processNextStudent() {
-                if (currentIndex >= appData.calculatedResults.length) {
-                    // সমস্ত পিডিএফ সফলভাবে তৈরি হয়েছে -> এবার জিপ কম্পাইল হবে
-                    zip.generateAsync({ type: "blob" }).then(function(zippedContent) {
-                        const downloadLink = document.createElement('a');
-                        downloadLink.href = URL.createObjectURL(zippedContent);
-                        downloadLink.download = `All_Transcripts_${appData.group.toUpperCase()}_Group.zip`;
-                        document.body.appendChild(downloadLink);
-                        downloadLink.click();
-                        document.body.removeChild(downloadLink);
-
-                        resetUI();
-                    }).catch(function(err) {
-                        console.error("ZIP packaging error: ", err);
-                        alert("Failed to pack the transcripts into a ZIP file.");
-                        resetUI();
-                    });
-                    return;
-                }
-
-                const student = appData.calculatedResults[currentIndex];
-                
-                // ১. কনটেইনারে ফ্রেশ মার্কশীট ডাটা ইনজেক্ট করুন
-                engineContainer.innerHTML = buildCardHtmlTemplate(student);
-
-                // ২. html2canvas রেন্ডার করার জন্য ব্রাউজারকে সামান্য বিরতি দিন
-                setTimeout(function() {
-                    html2canvas(engineContainer, { 
-                        scale: 2, 
-                        useCORS: true, 
-                        logging: false,
-                        backgroundColor: "#ffffff"
-                    }).then(function(canvas) {
-                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                        
-                        // ৩. একটি নতুন এ৪ সাইজ পিডিএফ ইনস্ট্যান্স তৈরি করুন
-                        const pdf = new jsPDF('p', 'mm', 'a4');
-                        const imgWidth = 180; 
-                        const imgHeight = (canvas.height * imgWidth) / canvas.width; 
-
-                        // ৪. পিডিএফে ইমেজটি পুশ করুন
-                        pdf.addImage(imgData, 'JPEG', 15, 15, imgWidth, imgHeight);
-                        
-                        // ৫. ব্লব আউটপুট নিয়ে জিপে ফাইলটি সেভ করুন
-                        const pdfBlob = pdf.output('blob');
-                        zip.file(`Roll_${student.roll}_Transcript.pdf`, pdfBlob);
-
-                        // ৬. ইন্ডেক্স বাড়িয়ে পরবর্তী স্টুডেন্টের প্রসেস শুরু করুন
-                        currentIndex++;
-                        processNextStudent();
-                    }).catch(function(err) {
-    console.error("================================");
-    console.error("ROLL:", student.roll);
-    console.error("ERROR:", err);
-    console.error("STACK:", err.stack);
-    console.error("================================");
-
-    alert(
-        "Error processing Roll: " +
-        student.roll +
-        "\n\n" +
-        (err.message || err)
-    );
-
-    resetUI();
-});
-                }, 20);
-            }
-
-            function resetUI() {
-                engineContainer.innerHTML = '';
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'pointer-events-none');
-                statusDiv.classList.add('hidden');
-            }
-
-            // লুপটি স্টার্ট করুন
-            processNextStudent();
-        }
-    </script>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-bottom:22px;">
+      <div>
+        <label class="field-label">Institute Name</label>
+        <input type="text" id="cfg-inst-name" placeholder="e.g. Green View College" oninput="syncLetterhead()">
+      </div>
+      <div>
+        <label class="field-label">Institute Logo</label>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="file" id="cfg-logo-file" accept="image/*" onchange="handleLogoUpload(event)" style="font-size:.78rem;">
+          <button class="btn btn-ghost btn-sm" onclick="clearLogo()" type="button">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:20px;">
+      <div>
+        <label class="field-label">Academic Year</label>
+        <select id="cfg-year" onchange="syncLetterhead()">
+          <option value="1st Year">1st Year</option>
+          <option value="2nd Year">2nd Year</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Group</label>
+        <select id="group-select" onchange="syncLetterhead()">
+          <option value="Science">Science (বিজ্ঞান)</option>
+          <option value="Arts">Arts (মানবিক)</option>
+          <option value="Commerce">Commerce (ব্যবসায় শিক্ষা)</option>
+        </select>
+      </div>
+      <div>
+        <label class="field-label">Number of Students</label>
+        <div class="stepnum">
+          <button type="button" onclick="bumpField('student-count',-1,1)">−</button>
+          <input type="number" id="student-count" min="1" value="3">
+          <button type="button" onclick="bumpField('student-count',1,1)">+</button>
+        </div>
+      </div>
+      <div>
+        <label class="field-label">Total Offered Subjects</label>
+        <div class="stepnum">
+          <button type="button" onclick="bumpField('subject-count',-1,1,15)">−</button>
+          <input type="number" id="subject-count" min="1" max="15" value="5">
+          <button type="button" onclick="bumpField('subject-count',1,1,15)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice" style="margin-top:20px;">ℹ️ You can return to this step any time from the stepper above — your subject setup and marks already entered won't be lost.</div>
+
+    <div style="margin-top:22px; display:flex; justify-content:flex-end;">
+      <button class="btn btn-primary" onclick="nextStep(2)">Configure Subjects →</button>
+    </div>
+  </section>
+
+  <!-- ===== STEP 2 : Subject config ===== -->
+  <section id="step2" class="card no-print hidden" style="margin-top:22px;">
+    <div class="card-head">
+      <div><span class="eyebrow">Step 2</span><h2>Subject &amp; Marks Distribution</h2></div>
+    </div>
+    <div id="subject-inputs-container" style="display:flex; flex-direction:column; gap:12px;"></div>
+    <div style="margin-top:22px; display:flex; justify-content:space-between;">
+      <button class="btn btn-ghost" onclick="goToStep(1)">← Back</button>
+      <button class="btn btn-primary" onclick="nextStep(3)">Build Entry Sheet →</button>
+    </div>
+  </section>
+
+  <!-- ===== STEP 3 : Eligibility + marks table ===== -->
+  <section id="step3" class="card no-print hidden" style="margin-top:22px;">
+    <div class="card-head">
+      <div><span class="eyebrow">Step 3</span><h2>Subject Eligibility &amp; Marks Entry</h2></div>
+    </div>
+
+    <h3 style="font-size:.92rem; color:var(--navy); margin:0 0 4px;">Bulk Subject Eligibility</h3>
+    <p class="hint" style="margin-bottom:12px;">Instead of clicking a dropdown per student, list serial numbers (e.g. <code>1-10,14,19</code>) that should be <strong>Optional (4th subject)</strong> or <strong>Not Taken</strong> for each subject. Everyone else defaults to Mandatory.</p>
+    <div id="bulk-elig-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;"></div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+      <h3 style="font-size:.92rem; color:var(--navy); margin:0;">Marks Entry Sheet</h3>
+      <button class="btn btn-gold" onclick="processResults()">Calculate &amp; Generate Results 🚀</button>
+    </div>
+
+    <div class="scrollx" style="margin-bottom:4px;">
+      <div id="top-scrollbar-linker" style="height:1px;"></div>
+    </div>
+    <div class="scrollx" id="main-table-container">
+      <table class="entry">
+        <thead id="table-header"></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:22px;">
+      <button class="btn btn-ghost" onclick="goToStep(2)">← Back</button>
+    </div>
+  </section>
+
+  <!-- ===== RESULTS ===== -->
+  <section id="result-display-section" class="hidden" style="margin-top:30px;">
+    <div class="notice no-print" style="margin-bottom:14px;">✅ Results generated. You can still go back to any step above to correct an entry, then recalculate.</div>
+    <div class="result-grid">
+
+      <div id="merit-col" class="card">
+        <div class="doc-letterhead" id="merit-letterhead"></div>
+        <div class="card-head" style="border:none; margin-bottom:10px; padding-bottom:0;">
+          <h2>🏆 Tabular Merit List</h2>
+          <button onclick="printMeritListOnly()" class="btn btn-primary btn-sm no-print">📥 Export PDF</button>
+        </div>
+        <div class="scrollx">
+          <table class="merit">
+            <thead><tr><th>Rank</th><th>Roll No</th><th>Total Marks</th><th>GPA</th><th>Status</th></tr></thead>
+            <tbody id="merit-list-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="card-col" class="card">
+        <div class="no-print" style="border-bottom:1px solid var(--line-soft); padding-bottom:14px; margin-bottom:14px;">
+          <h2 style="font-size:1.1rem; margin:0 0 12px;">📄 Student Report Cards</h2>
+          <button onclick="downloadAllTranscriptsAsZip()" id="btn-zip-download" class="btn btn-gold" style="width:100%; justify-content:center; margin-bottom:10px;">📦 Download All Transcripts (.ZIP)</button>
+          <div id="zip-loading-status" class="hidden" style="font-size:.72rem; text-align:center; color:var(--gold-deep); font-weight:700; margin-bottom:8px;">Generating PDFs and bundling package, please wait…</div>
+          <label class="field-label" style="border-top:1px solid var(--line-soft); padding-top:10px;">Select Individual Roll</label>
+          <select id="report-card-selector" onchange="renderIndividualReportCard()"></select>
+        </div>
+
+        <div id="bulk-rendering-engine" style="position:fixed; left:-9999px; top:-9999px; width:460px; background:#fff; padding:20px;"></div>
+
+        <div id="printable-report-card" class="hidden">
+          <div id="report-card-wrap" class="transcript-shell">
+            <div class="doc-letterhead" id="card-letterhead"></div>
+            <div id="card-subject-rows"></div>
+            <div class="gpa-box-row">
+              <div class="gpa-box"><span class="gl">Total Score</span><span class="gv num" id="card-total-marks">0</span></div>
+              <div class="gpa-box gold"><span class="gl">GPA</span><span class="gv num" id="card-final-gpa">0.00</span></div>
+            </div>
+          </div>
+          <div class="no-print" style="margin-top:16px; display:flex; justify-content:center;">
+            <button onclick="printSingleReportCard()" class="btn btn-soft btn-sm">🖨️ Print / Save as PDF</button>
+          </div>
+        </div>
+        <div id="report-card-placeholder" class="no-print" style="text-align:center; color:var(--muted-2); padding:30px 10px; border:2px dashed var(--line); border-radius:var(--r-md); font-size:.82rem;">Select a student roll above to display the transcript.</div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<!-- ===== Archive overlay ===== -->
+<div id="archive-overlay" class="archive-overlay hidden no-print">
+  <div class="archive-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <h2 style="margin:0; font-size:1.1rem; color:var(--navy);">🗂 Result Archive</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeArchive()">Close ✕</button>
+    </div>
+    <p class="hint" style="margin-bottom:14px;">Results are saved here automatically each time you click <strong>Calculate &amp; Generate Results</strong>.</p>
+    <div class="notice" style="margin-bottom:14px;">⚠️ This archive uses Claude's shared artifact storage — anyone who opens this same artifact link can search it too. Don't use it for sensitive personal data beyond roll/grades.</div>
+    <div style="display:flex; gap:8px; margin-bottom:6px;">
+      <input type="text" id="archive-search-roll" placeholder="Search by roll number…" style="flex:1;" onkeydown="if(event.key==='Enter')searchArchive()">
+      <button class="btn btn-primary btn-sm" onclick="searchArchive()">Search</button>
+    </div>
+    <div id="archive-results"></div>
+  </div>
+</div>
+
+<script>
+let appData = {
+  instituteName:'', instituteYear:'1st Year', logoDataUrl:'',
+  group:'Science', studentCount:3, subjectCount:5,
+  baseSubjects: [], flatSubjects: [],
+  students: [], // {roll, subjectRoles:{subId:role}, marks:{ 'subId-paper-field': value }}
+  calculatedResults: [], unlockedStep:1, resultsStale:false
+};
+
+/* ============ helpers ============ */
+function $(id){ return document.getElementById(id); }
+function ensureStudents(){
+  const n = appData.studentCount;
+  while(appData.students.length < n) appData.students.push({roll:'', subjectRoles:{}, marks:{}});
+  appData.students.length = n;
+}
+function bumpField(id, delta, min, max){
+  const el = $(id);
+  let v = (parseInt(el.value)||0) + delta;
+  if(min!==undefined) v = Math.max(min, v);
+  if(max!==undefined) v = Math.min(max, v);
+  el.value = v;
+}
+function parseRangeList(str){
+  const out = new Set();
+  (str||'').split(',').forEach(part=>{
+    part = part.trim(); if(!part) return;
+    if(part.includes('-')){
+      const [a,b] = part.split('-').map(x=>parseInt(x.trim()));
+      if(!isNaN(a) && !isNaN(b)){ for(let i=Math.min(a,b); i<=Math.max(a,b); i++) out.add(i); }
+    } else {
+      const v = parseInt(part); if(!isNaN(v)) out.add(v);
+    }
+  });
+  return out;
+}
+
+/* ============ letterhead / logo ============ */
+function handleLogoUpload(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){ appData.logoDataUrl = ev.target.result; syncLetterhead(); };
+  reader.readAsDataURL(file);
+}
+function clearLogo(){ appData.logoDataUrl=''; $('cfg-logo-file').value=''; syncLetterhead(); }
+function syncLetterhead(){
+  appData.instituteName = $('cfg-inst-name').value.trim() || 'Your Institute Name';
+  appData.instituteYear = $('cfg-year').value;
+  appData.group = $('group-select').value;
+
+  $('topbar-inst-name').innerText = appData.instituteName;
+  const img = $('topbar-logo-img'), fb = $('topbar-logo-fallback');
+  if(appData.logoDataUrl){ img.src = appData.logoDataUrl; img.classList.remove('hidden'); fb.classList.add('hidden'); }
+  else { img.classList.add('hidden'); fb.classList.remove('hidden');
+    fb.innerText = appData.instituteName.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() || 'IN'; }
+
+  renderLetterheadInto('merit-letterhead');
+  renderLetterheadInto('card-letterhead');
+}
+function letterheadHTML(){
+  const initials = (appData.instituteName||'IN').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const logoBlock = appData.logoDataUrl
+    ? `<img src="${appData.logoDataUrl}">`
+    : `<div class="seal" style="width:54px;height:54px;"><span style="font-size:.78rem;">${initials}</span></div>`;
+  return `${logoBlock}
+    <div>
+      <div class="lh-name">${appData.instituteName||'Your Institute Name'}</div>
+      <div class="lh-meta">${appData.group} &nbsp;•&nbsp; ${appData.instituteYear} &nbsp;•&nbsp; Academic Transcript</div>
+    </div>`;
+}
+function renderLetterheadInto(id){ const el = $(id); if(el) el.innerHTML = letterheadHTML(); }
+
+/* ============ stepper ============ */
+const STEP_META = [
+  {n:1, main:'Setup', sub:'Institute & batch'},
+  {n:2, main:'Subjects', sub:'Marks distribution'},
+  {n:3, main:'Entry Sheet', sub:'Eligibility & marks'},
+];
+function renderStepper(){
+  const wrap = $('stepper'); wrap.innerHTML='';
+  STEP_META.forEach((s, idx)=>{
+    const item = document.createElement('div'); item.className='step-item';
+    if(s.n === currentStep) item.classList.add('active');
+    else if(s.n < currentStep || s.n < appData.unlockedStep) item.classList.add('done');
+    const disabled = s.n > appData.unlockedStep;
+    item.innerHTML = `<button class="step-btn" ${disabled?'disabled':''} onclick="goToStep(${s.n})">
+        <span class="step-num">${s.n}</span>
+        <span class="step-label"><span class="lbl-main">${s.main}</span><span class="lbl-sub">${s.sub}</span></span>
+      </button>`;
+    wrap.appendChild(item);
+    if(idx < STEP_META.length-1){
+      const line = document.createElement('div'); line.className='step-line' + (s.n < appData.unlockedStep ? ' filled':'');
+      wrap.appendChild(line);
+    }
+  });
+}
+let currentStep = 1;
+function nextStep(n){
+  appData.unlockedStep = Math.max(appData.unlockedStep, n);
+  goToStep(n);
+}
+function goToStep(n){
+  if(n > appData.unlockedStep) return;
+  if(n===2){ buildSubjectConfigInputs(); }
+  if(n===3){ buildEligibilityAndTable(); }
+  currentStep = n;
+  [1,2,3].forEach(i=> $('step'+i).classList.toggle('hidden', i!==n));
+  $('result-display-section').classList.add('hidden');
+  renderStepper();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ============ STEP 1 -> 2 ============ */
+function buildSubjectConfigInputs(){
+  appData.studentCount = parseInt($('student-count').value)||1;
+  appData.subjectCount = parseInt($('subject-count').value)||1;
+  syncLetterhead();
+  ensureStudents();
+
+  const container = $('subject-inputs-container');
+  const existing = appData.baseSubjects; // preserve previous values where possible
+  container.innerHTML='';
+  const sampleNames = ["Bangla","English","Physics","Chemistry","Agriculture"];
+  const newBase = [];
+  for(let i=1;i<=appData.subjectCount;i++){
+    const prev = existing[i-1];
+    const defaultName = prev ? prev.name : (sampleNames[i-1] || `Subject ${i}`);
+    const isBangla = defaultName.toLowerCase().includes('bangla');
+    const cq = prev ? prev.cq : (isBangla?70:50);
+    const mcq = prev ? prev.mcq : (isBangla?30:25);
+    const pr = prev ? prev.pr : (isBangla?0:25);
+    const dbl = prev ? prev.isDoublePaper : (i===1||i===3);
+    newBase.push({id:i,name:defaultName,cq,mcq,pr,isDoublePaper:dbl});
+
+    const div = document.createElement('div'); div.className='subj-card';
+    div.innerHTML = `
+      <div><label class="field-label">Subject ${i} Name</label>
+        <input type="text" id="sub-name-${i}" value="${defaultName}"></div>
+      <div><label class="field-label">CQ Total</label>
+        <input type="number" id="sub-cq-${i}" value="${cq}"></div>
+      <div><label class="field-label">MCQ Total</label>
+        <input type="number" id="sub-mcq-${i}" value="${mcq}"></div>
+      <div><label class="field-label">Practical Total</label>
+        <input type="number" id="sub-pr-${i}" value="${pr}"></div>
+      <div><label class="toggle">
+          <input type="checkbox" id="sub-double-${i}" ${dbl?'checked':''}>
+          <span class="track"></span><span class="tlabel">2 Papers</span>
+        </label></div>`;
+    container.appendChild(div);
+  }
+}
+
+/* ============ STEP 2 -> 3 ============ */
+function commitSubjectsFromInputs(){
+  appData.baseSubjects = []; appData.flatSubjects = [];
+  for(let i=1;i<=appData.subjectCount;i++){
+    const name = $(`sub-name-${i}`).value.trim() || `Subject ${i}`;
+    const cq = parseInt($(`sub-cq-${i}`).value)||0;
+    const mcq = parseInt($(`sub-mcq-${i}`).value)||0;
+    const pr = parseInt($(`sub-pr-${i}`).value)||0;
+    const dbl = $(`sub-double-${i}`).checked;
+    appData.baseSubjects.push({id:i,name,cq,mcq,pr,isDoublePaper:dbl});
+    if(dbl){
+      const isBangla = name.toLowerCase().includes('bangla');
+      appData.flatSubjects.push({parentId:i,paperNum:1,name:`${name} 1st`,cq,mcq,pr});
+      appData.flatSubjects.push({parentId:i,paperNum:2,name:`${name} 2nd`,cq:isBangla?100:cq,mcq:isBangla?0:mcq,pr:isBangla?0:pr});
+    } else {
+      appData.flatSubjects.push({parentId:i,paperNum:1,name,cq,mcq,pr});
+    }
+  }
+}
+
+function buildEligibilityAndTable(){
+  commitSubjectsFromInputs();
+  ensureStudents();
+
+  // ---- bulk eligibility controls ----
+  const elig = $('bulk-elig-container'); elig.innerHTML='';
+  appData.baseSubjects.forEach(sub=>{
+    const isAgri = sub.name.toLowerCase().includes('agri');
+    const row = document.createElement('div'); row.className='bulk-row';
+    row.innerHTML = `
+      <div><label class="field-label">${sub.name}</label>
+        <div class="hint" style="margin-top:0;">Default: <strong>${isAgri?'Optional':'Mandatory'}</strong></div></div>
+      <div><label class="field-label">Optional (4th) serials</label>
+        <input type="text" id="bulk-opt-${sub.id}" placeholder="e.g. 1-10,15" value="${isAgri?'all':''}"></div>
+      <div><label class="field-label">Not Taken serials</label>
+        <input type="text" id="bulk-nt-${sub.id}" placeholder="e.g. 11-12"></div>
+      <div><button class="btn btn-soft btn-sm" onclick="applyBulkEligibility(${sub.id})">Apply ↓</button></div>`;
+    elig.appendChild(row);
+  });
+
+  renderMarksTable();
+  // apply default bulk rules once on first build (agriculture-style optional defaults)
+  appData.baseSubjects.forEach(sub=>{
+    const isAgri = sub.name.toLowerCase().includes('agri');
+    if(isAgri) applyBulkEligibility(sub.id, true);
+  });
+}
+
+function applyBulkEligibility(subId, silent){
+  const optEl = $(`bulk-opt-${subId}`), ntEl = $(`bulk-nt-${subId}`);
+  const optVal = optEl.value.trim().toLowerCase();
+  const optSet = optVal === 'all' ? null : parseRangeList(optEl.value);
+  const ntSet = parseRangeList(ntEl.value);
+  for(let s=1; s<=appData.studentCount; s++){
+    let role = 'mandatory';
+    if(optVal==='all' || (optSet && optSet.has(s))) role='optional';
+    if(ntSet.has(s)) role='not_taken';
+    appData.students[s-1].subjectRoles[subId] = role;
+    const sel = $(`role-s${s}-sub${subId}`);
+    if(sel){ sel.value = role; toggleInputRowDisability(s, subId); }
+  }
+  if(!silent) markResultsStale();
+}
+
+/* ============ marks table ============ */
+function renderMarksTable(){
+  const tHead = $('table-header');
+  let r1 = `<tr><th rowspan="2" style="min-width:230px; text-align:left; padding-left:10px;">Student &amp; Subject Role</th>`;
+  let r2 = `<tr class="sub-head">`;
+  appData.baseSubjects.forEach(sub=>{
+    const papers = appData.flatSubjects.filter(f=>f.parentId===sub.id).length;
+    r1 += `<th colspan="${papers*3}">${sub.name}</th>`;
+    for(let p=0;p<papers;p++){ r2 += `<th>CQ</th><th>MCQ</th><th>PR</th>`; }
+  });
+  r1+='</tr>'; r2+='</tr>';
+  tHead.innerHTML = r1+r2;
+
+  const tBody = $('table-body'); tBody.innerHTML='';
+  for(let s=1; s<=appData.studentCount; s++){
+    const student = appData.students[s-1];
+    let roleHtml='';
+    appData.baseSubjects.forEach(sub=>{
+      const isAgri = sub.name.toLowerCase().includes('agri');
+      const savedRole = student.subjectRoles[sub.id] || (isAgri?'optional':'mandatory');
+      student.subjectRoles[sub.id] = savedRole;
+      roleHtml += `<div class="role-row">
+          <span style="max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${sub.name}</span>
+          <select id="role-s${s}-sub${sub.id}" onchange="onRoleChange(${s},${sub.id})">
+            <option value="mandatory" ${savedRole==='mandatory'?'selected':''}>Mandatory</option>
+            <option value="optional" ${savedRole==='optional'?'selected':''}>Optional (4th)</option>
+            <option value="not_taken" ${savedRole==='not_taken'?'selected':''}>Not Taken</option>
+          </select></div>`;
+    });
+
+    let row = `<tr>
+      <td style="background:var(--paper);">
+        <input type="text" class="roll-input" id="student-roll-${s}" placeholder="Roll Number" value="${student.roll||''}" oninput="onRollChange(${s})">
+        <div style="margin-top:6px; background:#fff; border:1px solid var(--line-soft); border-radius:6px; padding:6px 8px;">${roleHtml}</div>
+      </td>`;
+
+    appData.flatSubjects.forEach(sub=>{
+      ['cq','mcq','pr'].forEach(field=>{
+        const max = sub[field];
+        const key = `${sub.parentId}-${sub.paperNum}-${field}`;
+        const val = student.marks[key];
+        const disabled = max===0 ? 'disabled' : '';
+        row += `<td class="sub-block-s${s}-sub${sub.parentId}">
+          <input type="number" class="cell-input num" id="marks-s${s}-${key}" data-max="${max}" data-key="${key}" data-s="${s}"
+            placeholder="${max}" value="${val!==undefined?val:''}" ${disabled} oninput="onMarkChange(${s},'${key}')"></td>`;
+      });
+    });
+    row += '</tr>';
+    tBody.innerHTML += row;
+  }
+  appData.baseSubjects.forEach(sub=>{
+    for(let s=1; s<=appData.studentCount; s++) toggleInputRowDisability(s, sub.id);
+  });
+  setTimeout(()=>{
+    const main = $('main-table-container');
+    $('top-scrollbar-linker').style.width = main.scrollWidth+'px';
+  },80);
+}
+function onRollChange(s){ appData.students[s-1].roll = $(`student-roll-${s}`).value.trim(); markResultsStale(); }
+function onMarkChange(s,key){
+  const el = $(`marks-s${s}-${key}`);
+  appData.students[s-1].marks[key] = el.value === '' ? undefined : parseFloat(el.value);
+  markResultsStale();
+}
+function onRoleChange(s, subId){
+  appData.students[s-1].subjectRoles[subId] = $(`role-s${s}-sub${subId}`).value;
+  toggleInputRowDisability(s, subId);
+  markResultsStale();
+}
+function toggleInputRowDisability(s, subId){
+  const sel = $(`role-s${s}-sub${subId}`); if(!sel) return;
+  const role = sel.value;
+  document.querySelectorAll(`.sub-block-s${s}-sub${subId} input`).forEach(input=>{
+    const max = parseInt(input.getAttribute('data-max'))||0;
+    if(role==='not_taken'){ input.disabled=true; input.classList.add('opacity-lock'); }
+    else { input.disabled = max===0; input.classList.toggle('opacity-lock', max===0); }
+  });
+}
+function markResultsStale(){
+  if(!$('result-display-section').classList.contains('hidden')){
+    appData.resultsStale = true;
+  }
+}
+
+/* ============ grading + calculation ============ */
+function getGradeInfo(obtained,total){
+  if(total===0) return {gp:0, grade:'N/A'};
+  const pct = (obtained/total)*100;
+  if(pct>=80) return {gp:5.00, grade:'A+'};
+  if(pct>=70) return {gp:4.00, grade:'A'};
+  if(pct>=60) return {gp:3.50, grade:'A-'};
+  if(pct>=50) return {gp:3.00, grade:'B'};
+  if(pct>=40) return {gp:2.00, grade:'C'};
+  if(pct>=33) return {gp:1.00, grade:'D'};
+  return {gp:0, grade:'F'};
+}
+
+function processResults(){
+  appData.studentCount = appData.students.length;
+  appData.unlockedStep = Math.max(appData.unlockedStep, 3);
+  appData.calculatedResults = [];
+
+  for(let s=1; s<=appData.studentCount; s++){
+    const student = appData.students[s-1];
+    const roll = (student.roll||'').trim();
+    if(!roll){ alert(`Error: Roll is empty on row ${s}`); return; }
+
+    let profile = {roll, isAbsentInMandatory:false, hasFailedMandatory:false, subjectBreakdown:[], totalMarksObtained:0, finalGpa:0.00};
+    let totalGpaPoints=0, mandatoryCount=0, fourthBonus=0;
+
+    appData.baseSubjects.forEach(baseSub=>{
+      const role = student.subjectRoles[baseSub.id] || 'mandatory';
+      if(role==='not_taken') return;
+      const isFourth = role==='optional';
+      const papers = appData.flatSubjects.filter(f=>f.parentId===baseSub.id);
+
+      let oCq=0,mCq=0,absCq=true, oMcq=0,mMcq=0,absMcq=true, oPr=0,mPr=0,absPr=true;
+      papers.forEach(p=>{
+        const key = `${p.parentId}-${p.paperNum}`;
+        const cqVal = student.marks[`${key}-cq`], mcqVal = student.marks[`${key}-mcq`], prVal = student.marks[`${key}-pr`];
+        if(p.cq>0){ mCq+=p.cq; if(cqVal!==undefined){oCq+=cqVal; absCq=false;} } else absCq=false;
+        if(p.mcq>0){ mMcq+=p.mcq; if(mcqVal!==undefined){oMcq+=mcqVal; absMcq=false;} } else absMcq=false;
+        if(p.pr>0){ mPr+=p.pr; if(prVal!==undefined){oPr+=prVal; absPr=false;} } else absPr=false;
+      });
+
+      const isAbsent = absCq||absMcq||absPr;
+      if(isAbsent && !isFourth) profile.isAbsentInMandatory = true;
+
+      const passCq = mCq===0 || (oCq/mCq>=0.33);
+      const passMcq = mMcq===0 || (oMcq/mMcq>=0.33);
+      const passPr = mPr===0 || (oPr/mPr>=0.33);
+
+      const subTotal = oCq+oMcq+oPr, subMax = mCq+mMcq+mPr;
+      let g = getGradeInfo(subTotal, subMax);
+      if(!passCq||!passMcq||!passPr||isAbsent){ g.gp=0; g.grade='F'; if(!isFourth) profile.hasFailedMandatory = true; }
+
+      if(!isFourth){ profile.totalMarksObtained += subTotal; totalGpaPoints += g.gp; mandatoryCount++; }
+      else { fourthBonus = Math.max(0, g.gp-2); }
+
+      profile.subjectBreakdown.push({name:baseSub.name, cq:mCq>0?oCq:'-', mcq:mMcq>0?oMcq:'-', pr:mPr>0?oPr:'-', total:subTotal, grade:g.grade, gp:g.gp, isFourth});
+    });
+
+    if(profile.isAbsentInMandatory || profile.hasFailedMandatory || mandatoryCount===0){ profile.finalGpa = 0.00; }
+    else { profile.finalGpa = Math.min(5.00, parseFloat(((totalGpaPoints+fourthBonus)/mandatoryCount).toFixed(2))); }
+    appData.calculatedResults.push(profile);
+  }
+
+  appData.calculatedResults.sort((a,b)=>{
+    if(b.finalGpa!==a.finalGpa) return b.finalGpa-a.finalGpa;
+    if(b.totalMarksObtained!==a.totalMarksObtained) return b.totalMarksObtained-a.totalMarksObtained;
+    return a.roll.localeCompare(b.roll, undefined, {numeric:true, sensitivity:'base'});
+  });
+
+  appData.resultsStale = false;
+  renderOutputs();
+  saveResultsToArchive();
+}
+
+function renderOutputs(){
+  syncLetterhead();
+  const tbody = $('merit-list-tbody'); tbody.innerHTML='';
+  let optsHtml = `<option value="">-- Choose Roll --</option>`;
+  appData.calculatedResults.forEach((student, idx)=>{
+    const pos = idx+1;
+    let pill='pill-success', text='PASSED';
+    if(student.isAbsentInMandatory){ pill='pill-muted'; text='ABSENT'; }
+    else if(student.finalGpa===0){ pill='pill-danger'; text='FAILED'; }
+    tbody.innerHTML += `<tr>
+      <td>${text==='PASSED' ? `<span class="rank-badge ${pos===1?'r1':''}">${pos}</span>` : '–'}</td>
+      <td style="font-weight:700;">${student.roll}</td>
+      <td class="num">${student.totalMarksObtained}</td>
+      <td class="num" style="font-weight:800; color:var(--navy-deep);">${student.finalGpa.toFixed(2)}</td>
+      <td><span class="pill ${pill}">${text}</span></td>
+    </tr>`;
+    optsHtml += `<option value="${student.roll}">Roll: ${student.roll} (${text})</option>`;
+  });
+  $('report-card-selector').innerHTML = optsHtml;
+  $('result-display-section').classList.remove('hidden');
+  $('result-display-section').scrollIntoView({behavior:'smooth'});
+}
+
+/* ============ report card render (screen + print template) ============ */
+function subjectRowsHTML(student, forPdf){
+  return student.subjectBreakdown.map(sub=>{
+    const tag = sub.isFourth ? `<span class="tag4" ${forPdf?'style="font-size:9px;color:#B43E37;font-weight:800;background:#FBEAE8;padding:1px 5px;border-radius:4px;margin-left:5px;border:1px solid #F0C7C2;"':''}>4th Sub</span>` : '';
+    if(forPdf){
+      return `<div style="background:#fff;border:1px solid #E8ECF3;border-radius:8px;padding:11px 13px;margin-bottom:9px;">
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid #E8ECF3;padding-bottom:6px;margin-bottom:6px;">
+          <div style="font-weight:700;font-size:13px;color:#1B2333;">${sub.name}${tag}</div>
+          <div style="font-weight:800;font-size:14px;color:#1C2B4A;">${sub.grade} <span style="font-size:10px;color:#8B93A7;font-weight:400;">(GP ${sub.gp.toFixed(2)})</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);text-align:center;font-size:11px;color:#5C6478;">
+          <div>CQ: <strong>${sub.cq}</strong></div><div>MCQ: <strong>${sub.mcq}</strong></div><div>PR: <strong>${sub.pr}</strong></div><div style="font-weight:700;color:#334155;">Total: ${sub.total}</div>
+        </div></div>`;
+    }
+    return `<div class="subj-line">
+      <div class="subj-line-head"><span class="sname">${sub.name}${tag}</span><span class="sgrade">${sub.grade} <span style="font-size:.65rem;color:var(--muted-2); font-weight:400;">(GP ${sub.gp.toFixed(2)})</span></span></div>
+      <div class="subj-line-stats"><div>CQ: <strong>${sub.cq}</strong></div><div>MCQ: <strong>${sub.mcq}</strong></div><div>PR: <strong>${sub.pr}</strong></div><div style="font-weight:700;color:var(--ink);">Total: ${sub.total}</div></div>
+    </div>`;
+  }).join('');
+}
+function buildCardHtmlTemplate(student){
+  const lh = letterheadHTML();
+  return `<div style="font-family:Arial,sans-serif;color:#334155;padding:6px;background:#fff;">
+    <div style="display:flex;align-items:center;gap:14px;border-bottom:2px solid #1C2B4A;padding-bottom:14px;margin-bottom:16px;">${lh}</div>
+    <div>${subjectRowsHTML(student, true)}</div>
+    <div style="margin-top:18px;padding-top:12px;border-top:1px dashed #cbd5e1;display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;">
+      <div style="padding:10px;background:#EEF1F6;border-radius:8px;"><span style="display:block;font-size:10px;color:#5C6478;text-transform:uppercase;">Total Score</span><span style="font-weight:800;color:#1e293b;font-size:18px;">${student.totalMarksObtained}</span></div>
+      <div style="padding:10px;background:#F3E9D2;border-radius:8px;"><span style="display:block;font-size:10px;color:#7C5E1F;text-transform:uppercase;">GPA</span><span style="font-weight:800;color:#7C5E1F;font-size:18px;">${student.finalGpa.toFixed(2)}</span></div>
+    </div></div>`;
+}
+function renderIndividualReportCard(){
+  const roll = $('report-card-selector').value;
+  const wrap = $('printable-report-card'), ph = $('report-card-placeholder');
+  if(!roll){ wrap.classList.add('hidden'); ph.classList.remove('hidden'); return; }
+  ph.classList.add('hidden'); wrap.classList.remove('hidden');
+  const student = appData.calculatedResults.find(r=>r.roll===roll);
+  renderLetterheadInto('card-letterhead');
+  $('card-total-marks').innerText = student.totalMarksObtained;
+  $('card-final-gpa').innerText = student.finalGpa.toFixed(2);
+  $('card-subject-rows').innerHTML = subjectRowsHTML(student, false);
+}
+function printMeritListOnly(){ window.print(); }
+function printSingleReportCard(){
+  document.body.classList.add('printing-single-card');
+  setTimeout(()=>{ window.print(); setTimeout(()=>document.body.classList.remove('printing-single-card'),100); },50);
+}
+
+/* ============ ZIP export ============ */
+function downloadAllTranscriptsAsZip(){
+  if(!appData.calculatedResults.length){ alert('No results found to process!'); return; }
+  const btn = $('btn-zip-download'), status = $('zip-loading-status'), engine = $('bulk-rendering-engine');
+  btn.disabled=true; btn.classList.add('opacity-lock'); status.classList.remove('hidden');
+  const zip = new JSZip(); const { jsPDF } = window.jspdf; let idx=0;
+
+  function next(){
+    if(idx >= appData.calculatedResults.length){
+      zip.generateAsync({type:'blob'}).then(content=>{
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = `Transcripts_${(appData.instituteName||'Institute').replace(/\s+/g,'_')}_${appData.group}.zip`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        reset();
+      }).catch(err=>{ console.error(err); alert('Failed to pack the transcripts into a ZIP file.'); reset(); });
+      return;
+    }
+    const student = appData.calculatedResults[idx];
+    engine.innerHTML = buildCardHtmlTemplate(student);
+    setTimeout(()=>{
+      html2canvas(engine, {scale:2, useCORS:true, logging:false, backgroundColor:'#ffffff'}).then(canvas=>{
+        const img = canvas.toDataURL('image/jpeg',0.95);
+        const pdf = new jsPDF('p','mm','a4');
+        const w=180, h=(canvas.height*w)/canvas.width;
+        pdf.addImage(img,'JPEG',15,15,w,h);
+        zip.file(`Roll_${student.roll}_Transcript.pdf`, pdf.output('blob'));
+        idx++; next();
+      }).catch(err=>{ console.error(err); alert('Error processing Roll: '+student.roll+'\\n\\n'+(err.message||err)); reset(); });
+    },20);
+  }
+  function reset(){ engine.innerHTML=''; btn.disabled=false; btn.classList.remove('opacity-lock'); status.classList.add('hidden'); }
+  next();
+}
+
+/* ============ archive (window.storage) ============ */
+async function saveResultsToArchive(){
+  try{
+    for(const student of appData.calculatedResults){
+      const record = {
+        roll: student.roll, instituteName: appData.instituteName, year: appData.instituteYear,
+        group: appData.group, totalMarksObtained: student.totalMarksObtained, finalGpa: student.finalGpa,
+        status: student.isAbsentInMandatory ? 'ABSENT' : (student.finalGpa===0 ? 'FAILED' : 'PASSED'),
+        subjectBreakdown: student.subjectBreakdown, savedAt: new Date().toISOString()
+      };
+      const key = `result:${student.roll}`;
+      await window.storage.set(key, JSON.stringify(record), true);
+    }
+    let idxResult;
+    try{ idxResult = await window.storage.get('archive:index', true); } catch(e){ idxResult = null; }
+    let rolls = [];
+    try{ rolls = idxResult ? JSON.parse(idxResult.value) : []; } catch(e){ rolls = []; }
+    appData.calculatedResults.forEach(s=>{ if(!rolls.includes(s.roll)) rolls.push(s.roll); });
+    await window.storage.set('archive:index', JSON.stringify(rolls), true);
+  } catch(err){ console.error('Archive save failed', err); }
+}
+function openArchive(){ $('archive-overlay').classList.remove('hidden'); }
+function closeArchive(){ $('archive-overlay').classList.add('hidden'); }
+async function searchArchive(){
+  const q = $('archive-search-roll').value.trim().toLowerCase();
+  const out = $('archive-results');
+  out.innerHTML = `<div class="hint">Searching…</div>`;
+  try{
+    let idxResult;
+    try{ idxResult = await window.storage.get('archive:index', true); } catch(e){ idxResult = null; }
+    let rolls = [];
+    try{ rolls = idxResult ? JSON.parse(idxResult.value) : []; } catch(e){ rolls = []; }
+    const matches = q ? rolls.filter(r=> r.toLowerCase().includes(q)) : rolls;
+    if(!matches.length){ out.innerHTML = `<div class="hint" style="margin-top:10px;">No archived results found${q?' for "'+q+'"':''}.</div>`; return; }
+    out.innerHTML = '';
+    for(const roll of matches.slice(0,30)){
+      try{
+        const r = await window.storage.get(`result:${roll}`, true);
+        const rec = JSON.parse(r.value);
+        const item = document.createElement('div'); item.className='archive-result-item';
+        item.innerHTML = `<div>
+            <div style="font-weight:700;">Roll ${rec.roll} <span class="pill ${rec.status==='PASSED'?'pill-success':(rec.status==='FAILED'?'pill-danger':'pill-muted')}" style="margin-left:6px;">${rec.status}</span></div>
+            <div class="hint" style="margin-top:2px;">${rec.instituteName||''} • ${rec.group||''} • ${rec.year||''} • GPA ${Number(rec.finalGpa).toFixed(2)} • Marks ${rec.totalMarksObtained}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick='viewArchiveRecord(${JSON.stringify(JSON.stringify(rec))})'>View</button>`;
+        out.appendChild(item);
+      } catch(e){ /* skip missing */ }
+    }
+  } catch(err){ out.innerHTML = `<div class="hint">Could not reach archive storage.</div>`; }
+}
+function viewArchiveRecord(jsonStr){
+  const rec = JSON.parse(jsonStr);
+  let body = `Roll: ${rec.roll}\nInstitute: ${rec.instituteName}\nGroup: ${rec.group}  •  ${rec.year}\nStatus: ${rec.status}\nTotal Marks: ${rec.totalMarksObtained}\nGPA: ${Number(rec.finalGpa).toFixed(2)}\n\nSubjects:\n`;
+  rec.subjectBreakdown.forEach(s=> body += `- ${s.name}${s.isFourth?' (4th)':''}: ${s.grade} (GP ${Number(s.gp).toFixed(2)}), Total ${s.total}\n`);
+  alert(body);
+}
+
+/* ============ init ============ */
+function init(){
+  syncLetterhead();
+  appData.unlockedStep = 1; currentStep = 1;
+  renderStepper();
+}
+init();
+</script>
 </body>
 </html>

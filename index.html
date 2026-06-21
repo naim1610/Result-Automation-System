@@ -122,15 +122,22 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 
 table.entry{border-collapse:collapse; width:100%;}
 table.entry th, table.entry td{border:1px solid var(--line-soft);}
-table.entry thead th{background:var(--navy); color:#fff; font-weight:600; font-size:.72rem; letter-spacing:.03em; padding:8px 6px; position:sticky; top:0;}
-table.entry thead tr.sub-head th{background:#2A3A5C; font-size:.66rem; text-transform:uppercase; color:#CBD5EA;}
+table.entry thead tr:not(.sub-head) th{
+  background:var(--navy); color:#fff; font-weight:600; font-size:.72rem; letter-spacing:.03em;
+  padding:8px 6px; position:sticky; top:0; z-index:2; height:36px; box-sizing:border-box;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+table.entry thead tr.sub-head th{
+  background:#2A3A5C; font-size:.66rem; text-transform:uppercase; color:#CBD5EA;
+  padding:7px 4px; position:sticky; top:36px; z-index:2;
+}
 table.entry tbody td{padding:5px; vertical-align:top;}
 table.entry tbody tr:nth-child(even) td{background:#FAFBFD;}
-table.entry thead th:first-child, table.entry tbody td:first-child{
-  position:sticky; left:0; z-index:3; box-shadow:2px 0 4px rgba(15,24,40,.06);
+table.entry thead tr:not(.sub-head) th:first-child, table.entry tbody td:first-child{
+  position:sticky; left:0; box-shadow:2px 0 4px rgba(15,24,40,.06);
 }
-table.entry thead th:first-child{background:var(--navy); z-index:4;}
-table.entry tbody td:first-child{background:var(--paper);}
+table.entry tbody td:first-child{background:var(--paper); z-index:1;}
+table.entry thead tr:not(.sub-head) th:first-child{background:var(--navy); top:0; z-index:5;}
 table.entry tbody tr:nth-child(even) td:first-child{background:#E9EDF4;}
 .cell-input{width:74px; min-width:74px; text-align:center; padding:7px 4px; font-size:.86rem; border-radius:5px;}
 .cell-input:disabled{background:#EEF0F4; color:#B6BCC9;}
@@ -142,6 +149,7 @@ table.entry tbody tr:nth-child(even) td:first-child{background:#E9EDF4;}
 @media(max-width:760px){.bulk-row{grid-template-columns:1fr 1fr;}}
 
 .scrollx{overflow-x:auto; border:1px solid var(--line-soft); border-radius:var(--r-md);}
+#main-table-container{max-height:64vh; overflow-y:auto;}
 .scrollx::-webkit-scrollbar{height:11px;}
 .scrollx::-webkit-scrollbar-thumb{background:#B9C2D6; border-radius:6px; border:2px solid var(--paper);}
 .scrollx::-webkit-scrollbar-track{background:var(--paper);}
@@ -221,6 +229,7 @@ table.merit tbody tr:hover td{background:var(--paper);}
   .doc-letterhead .lh-name{font-size:1rem;}
   .subj-line-stats{grid-template-columns:repeat(2,1fr); row-gap:4px;}
   .archive-panel{padding:18px; max-width:100%;}
+  #main-table-container{max-height:54vh;}
 }
 @media(max-width:420px){
   div[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:1fr !important;}

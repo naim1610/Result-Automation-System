@@ -264,7 +264,26 @@ table.merit tbody tr:hover td{background:var(--paper);}
     </div>
     <div class="topbar-right">
       <span id="topbar-capacity" style="font-size:.7rem;color:#A0ADCA;display:none;"></span>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);" onclick="manualLoadSession()">&#8635; <span id="lbl-load-session">Load Saved Session</span></button>
       <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25);" onclick="openArchive()">&#128450; <span id="lbl-archive">Archive</span></button>
+    </div>
+  </div>
+
+
+  <!-- RESUME BANNER — shown on page load if saved session exists -->
+  <div id="resume-banner" class="hidden no-print" style="
+    background:linear-gradient(135deg,#1C2B4A,#0F1828);
+    border:1px solid rgba(169,128,47,.4);
+    border-radius:var(--r-lg);margin-top:14px;
+    padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <span style="font-size:1.3rem;">📋</span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;color:#fff;font-size:.92rem;" id="resume-banner-title">Resume previous session</div>
+      <div style="font-size:.72rem;color:#A0ADCA;margin-top:2px;" id="resume-banner-sub">Loading…</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-gold btn-sm" id="resume-banner-btn" onclick="resumeFromBanner()">↺ Resume Now</button>
+      <button class="btn btn-ghost btn-sm" style="color:#A0ADCA;border-color:rgba(255,255,255,.2);" onclick="dismissResumeBanner()">Dismiss</button>
     </div>
   </div>
 
@@ -1667,16 +1686,26 @@ async function downloadAllTranscriptsAsZip(){
 
 /* ============================================================
    MARKS SESSION SYNC
-   Saves/loads the entire marks entry state to a dedicated
-   Google Sheet tab (MarksSession) so work persists across sessions.
+   Design:
+   - When saving, the session key is also stored in localStorage
+     so it survives a page reload with no re-entry required.
+   - "Load Saved" fetches ALL sessions from the sheet and shows
+     a picker modal — teacher taps one to restore everything:
+     Step-1 config, subjects, rolls, marks, roles.
+   - After restore, the full app is rebuilt from the saved config
+     so the teacher can continue immediately.
 ============================================================ */
-var SESSION_DEBOUNCE_MS = 3000; // auto-save 3s after last keystroke
-var _sessionTimer = null;
-var _sessionDirty = false;
+var SESSION_DEBOUNCE_MS = 3000;
+var _sessionTimer  = null;
+var _sessionDirty  = false;
 var _sessionSaving = false;
 var _sessionLastSaved = null;
 
-/* Build a unique key for this batch: institute|group|year */
+var LS_SESSION_KEYS   = 'ras_session_keys_v1';   // list of known keys
+var LS_SESSION_CACHE  = 'ras_session_cache_v1';  // key→{config,savedAt} local mirror
+var LS_DISMISSED      = 'ras_banner_dismissed_v1';
+
+/* Unique key for the current batch */
 function sessionKey(){
   return [
     (appData.instituteName||'unknown').replace(/\|/g,'_'),
@@ -1685,7 +1714,32 @@ function sessionKey(){
   ].join('|');
 }
 
-/* The "config" payload: everything needed to rebuild the table on reload */
+/* Remember key + lightweight local cache of config (not marks — too large) */
+function rememberSessionKey(key, cfg){
+  // Always move this key to front so keys[0] = most recently used
+  var keys=getKnownSessionKeys();
+  var existing=keys.indexOf(key);
+  if(existing!==-1) keys.splice(existing,1); // remove old position
+  keys.unshift(key); // put at front
+  if(keys.length>20) keys.length=20;
+  localStorage.setItem(LS_SESSION_KEYS, JSON.stringify(keys));
+  // Update local config cache with fresh savedAt
+  if(cfg){
+    var cache=getSessionCache();
+    cache[key]={config:cfg, savedAt:new Date().toISOString()};
+    try{ localStorage.setItem(LS_SESSION_CACHE, JSON.stringify(cache)); }catch(e){}
+  }
+}
+function getKnownSessionKeys(){
+  try{ return JSON.parse(localStorage.getItem(LS_SESSION_KEYS)||'[]'); }
+  catch(e){ return []; }
+}
+function getSessionCache(){
+  try{ return JSON.parse(localStorage.getItem(LS_SESSION_CACHE)||'{}'); }
+  catch(e){ return {}; }
+}
+
+/* Full config snapshot — everything needed to rebuild the app */
 function sessionConfig(){
   return {
     instituteName: appData.instituteName,
@@ -1694,16 +1748,17 @@ function sessionConfig(){
     studentCount:  appData.studentCount,
     subjectCount:  appData.subjectCount,
     baseSubjects:  appData.baseSubjects,
-    flatSubjects:  appData.flatSubjects
+    flatSubjects:  appData.flatSubjects,
+    logoDataUrl:   appData.logoDataUrl
   };
 }
 
-/* Called from onMarkChange / onRollChange / onRoleChange — triggers debounced save */
+/* ---- Dirty / auto-save ---- */
 function markSessionDirty(){
   _sessionDirty = true;
-  setSyncStatus('unsaved', 'Unsaved changes…');
+  setSyncStatus('unsaved','Unsaved changes…');
   if(_sessionTimer) clearTimeout(_sessionTimer);
-  _sessionTimer = setTimeout(function(){ autoSaveSession(); }, SESSION_DEBOUNCE_MS);
+  _sessionTimer = setTimeout(autoSaveSession, SESSION_DEBOUNCE_MS);
 }
 
 function setSyncStatus(state, msg){
@@ -1718,26 +1773,29 @@ async function autoSaveSession(){
   var url=getSheetUrl(); if(!url) return;
   _sessionSaving=true;
   setSyncStatus('saving','Saving…');
+  var key=sessionKey();
+  var cfg=sessionConfig();
   try{
     await fetch(url,{
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({
         action:'saveSession',
-        key: sessionKey(),
-        config: sessionConfig(),
+        key: key,
+        config: cfg,
         students: appData.students
       })
     });
+    // Cache config + key locally so resume banner works after reload
+    rememberSessionKey(key, cfg);
     _sessionDirty=false;
     _sessionSaving=false;
     _sessionLastSaved=new Date();
-    var timeStr=_sessionLastSaved.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    setSyncStatus('saved','Saved at '+timeStr);
+    setSyncStatus('saved','Saved at '+_sessionLastSaved.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
   }catch(err){
     _sessionSaving=false;
     setSyncStatus('unsaved','Save failed — will retry');
-    _sessionTimer=setTimeout(function(){autoSaveSession();},8000);
+    _sessionTimer=setTimeout(autoSaveSession,8000);
   }
 }
 
@@ -1747,57 +1805,280 @@ function manualSaveSession(){
   autoSaveSession();
 }
 
+/* ---- Load: show session picker modal ---- */
 async function manualLoadSession(){
   var url=getSheetUrl();
-  if(!url){ alert('No Google Sheet connected. Set it up in Archive first.'); return; }
-  if(!appData.baseSubjects.length){ alert('Please complete Steps 1 & 2 first, then load.'); return; }
-  setSyncStatus('saving','Loading saved data…');
+  if(!url){
+    alert('No Google Sheet connected.\nSet it up via the Archive button first.');
+    return;
+  }
+  var knownKeys=getKnownSessionKeys();
+  if(!knownKeys.length){
+    showSessionPickerModal([], url, true);
+    return;
+  }
+  setSyncStatus('saving','Loading session list…');
   try{
-    var key=sessionKey();
+    var fetches=knownKeys.map(function(k){
+      return fetch(url+'?action=loadSession&key='+encodeURIComponent(k),{cache:'no-store'})
+        .then(function(r){return r.json();})
+        .then(function(d){ d._key=k; return d; })
+        .catch(function(){ return{found:false,_key:k}; });
+    });
+    var results=await Promise.all(fetches);
+    var found=results.filter(function(r){return r.found;});
+    if(!found.length){
+      // Fall back to local cache for display — network failed or sheet cleared
+      var cache=getSessionCache();
+      var cacheItems=knownKeys.map(function(k){
+        return cache[k]?{found:true,_key:k,config:cache[k].config,students:[],savedAt:cache[k].savedAt,_cacheOnly:true}:null;
+      }).filter(Boolean);
+      showSessionPickerModal(cacheItems, url, true);
+    } else {
+      showSessionPickerModal(found, url, false);
+    }
+    setSyncStatus('offline','Select a session to restore');
+  }catch(err){
+    setSyncStatus('unsaved','Failed: '+err.message);
+    alert('Could not reach Google Sheet:\n'+err.message);
+  }
+}
+
+/* ---- Session Picker Modal ---- */
+var _pickerSessions=[];
+function showSessionPickerModal(sessions, url, manualMode){
+  var existing=$('session-picker-modal');
+  if(existing) existing.remove();
+  _pickerSessions=sessions;
+
+  var listHTML='';
+  if(sessions.length){
+    sessions.forEach(function(sess,idx){
+      var cfg=sess.config||{};
+      var ts=sess.savedAt?new Date(sess.savedAt).toLocaleString():'—';
+      var studentCount=(sess.students||[]).length;
+      var cacheWarning=sess._cacheOnly?'<span style="font-size:.65rem;color:var(--gold-deep);font-weight:700;background:var(--gold-soft);padding:1px 5px;border-radius:3px;margin-left:4px;">⚠ Marks not loaded — sheet unreachable</span>':'';
+      listHTML+='<div style="border:1px solid var(--line-soft);border-radius:var(--r-md);padding:12px 14px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
+        +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-weight:700;font-size:.9rem;margin-bottom:3px;">'+(cfg.instituteName||sess._key)+cacheWarning+'</div>'
+        +'<div style="font-size:.72rem;color:var(--muted);">'+(cfg.group||'')+'&nbsp;&bull;&nbsp;'+(cfg.instituteYear||'')+'&nbsp;&bull;&nbsp;'+(studentCount||cfg.studentCount||'?')+' students&nbsp;&bull;&nbsp;'+(cfg.baseSubjects||[]).length+' subjects</div>'
+        +'<div style="font-size:.68rem;color:var(--muted-2);margin-top:2px;">Last saved: '+ts+'</div>'
+        +'</div>'
+        +'<button class="btn btn-primary btn-sm" onclick="restoreSessionByIndex('+idx+')">&#8635; Restore</button>'
+        +'</div>';
+    });
+  } else {
+    listHTML='<div class="notice" style="margin-bottom:10px;">&#9888; No saved sessions found in this browser\'s memory.<br>If you used a different browser or device, enter the session key manually below.</div>';
+  }
+
+  var manualHTML='<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);">'
+    +'<div style="font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:6px;">OR load by session key (for cross-device restore)</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<input type="text" id="manual-session-key-input" placeholder="Institute Name|Group|Year  e.g. My College|Science|1st Year" style="flex:1;font-size:.78rem;">'
+    +'<button class="btn btn-soft btn-sm" onclick="loadSessionByManualKey(\''+url+'\')">Load</button>'
+    +'</div>'
+    +'</div>';
+
+  var modal=document.createElement('div');
+  modal.id='session-picker-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(15,24,40,.6);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;overflow-y:auto;';
+  modal.innerHTML='<div style="background:#fff;border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:22px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;border-bottom:2px solid var(--navy);padding-bottom:12px;">'
+    +'<h2 style="margin:0;font-size:1.05rem;color:var(--navy);">&#8635; Restore Saved Session</h2>'
+    +'<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'session-picker-modal\').remove()">&#10005;</button>'
+    +'</div>'
+    +listHTML
+    +manualHTML
+    +'</div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click',function(e){if(e.target===modal)modal.remove();});
+}
+
+async function loadSessionByManualKey(url){
+  var key=($('manual-session-key-input').value||'').trim();
+  if(!key){alert('Please enter a session key.');return;}
+  setSyncStatus('saving','Loading…');
+  try{
+    var res=await fetch(url+'?action=loadSession&key='+encodeURIComponent(key),{cache:'no-store'});
+    var data=await res.json();
+    var modal=$('session-picker-modal');if(modal)modal.remove();
+    if(!data.found){
+      setSyncStatus('offline','Session not found.');
+      alert('No session found for key:\n'+key+'\n\nCheck spelling — it must match exactly.');
+      return;
+    }
+    data._key=key;
+    restoreSession(data);
+  }catch(err){
+    setSyncStatus('unsaved','Failed: '+err.message);
+    alert('Could not reach Google Sheet:\n'+err.message);
+  }
+}
+
+/* ---- Full restore: rebuilds Steps 1-3 from saved config ---- */
+// Accepts a plain object (not a JSON string)
+function restoreSessionByIndex(idx){
+  var sess=_pickerSessions[idx];
+  if(!sess){alert('Session data missing. Please try again.');return;}
+  restoreSession(sess);
+}
+function restoreSession(sess){
+  var modal=$('session-picker-modal');if(modal)modal.remove();
+  if(typeof sess==='string') sess=JSON.parse(sess); // safety fallback
+  var cfg=sess.config||{};
+  var students=sess.students||[];
+
+  if(!cfg.baseSubjects||!cfg.baseSubjects.length){
+    alert('Saved session has no subject config. Cannot restore.');
+    return;
+  }
+
+  /* ---- Restore Step 1 fields ---- */
+  appData.instituteName = cfg.instituteName||'';
+  appData.instituteYear = cfg.instituteYear||'1st Year';
+  appData.group         = cfg.group||'Science';
+  appData.studentCount  = cfg.studentCount||students.length||1;
+  appData.subjectCount  = cfg.subjectCount||cfg.baseSubjects.length||1;
+  appData.logoDataUrl   = cfg.logoDataUrl||'';
+
+  /* Update Step 1 DOM inputs */
+  var instEl=$('cfg-inst-name');   if(instEl) instEl.value=appData.instituteName;
+  var yearEl=$('cfg-year');         if(yearEl) yearEl.value=appData.instituteYear;
+  var grpEl=$('group-select');      if(grpEl) grpEl.value=appData.group;
+  var scEl=$('student-count');      if(scEl) scEl.value=appData.studentCount;
+  var subjEl=$('subject-count');    if(subjEl) subjEl.value=appData.subjectCount;
+
+  /* ---- Restore subject config directly (skip Step 2 DOM) ---- */
+  appData.baseSubjects = cfg.baseSubjects;
+  appData.flatSubjects = cfg.flatSubjects||[];
+
+  /* Rebuild flatSubjects if missing (older saves) */
+  if(!appData.flatSubjects.length){
+    appData.flatSubjects=[];
+    appData.baseSubjects.forEach(function(sub){
+      if(sub.isDoublePaper){
+        var isBangla=sub.name.toLowerCase().includes('bangla');
+        appData.flatSubjects.push({parentId:sub.id,paperNum:1,name:sub.name+' 1st',cq:sub.cq,mcq:sub.mcq,pr:sub.pr});
+        appData.flatSubjects.push({parentId:sub.id,paperNum:2,name:sub.name+' 2nd',cq:isBangla?100:sub.cq,mcq:isBangla?0:sub.mcq,pr:isBangla?0:sub.pr});
+      }else{
+        appData.flatSubjects.push({parentId:sub.id,paperNum:1,name:sub.name,cq:sub.cq,mcq:sub.mcq,pr:sub.pr});
+      }
+    });
+  }
+
+  /* ---- Restore students ---- */
+  appData.students=[];
+  for(var i=0;i<appData.studentCount;i++){
+    var src=students[i]||{roll:String(i+1),marks:{},subjectRoles:{}};
+    appData.students.push({
+      roll: src.roll||String(i+1),
+      marks: src.marks||{},
+      subjectRoles: src.subjectRoles||{}
+    });
+  }
+
+  /* ---- Unlock all steps and jump to Step 3 ---- */
+  appData.unlockedStep=3;
+  syncLetterhead();
+
+  /* Build table without rebuilding from DOM inputs */
+  rebuildBulkEligLabels();
+  buildTableHeader('table-header','table-body');
+  buildTableHeader('fs-table-header','fs-table-body');
+  VS.page=0; VS.totalPages=Math.ceil(appData.studentCount/VS.PAGE_SIZE);
+  renderPage(); renderFsPage(); updatePgBar();
+  updateSyncBarVisibility();
+
+  /* Navigate to step 3 */
+  currentStep=3;
+  [1,2,3].forEach(function(i){$('step'+i).classList.toggle('hidden',i!==3);});
+  $('result-display-section').classList.add('hidden');
+  renderStepper();
+
+  /* Remember this key with config */
+  rememberSessionKey(sess._key||sessionKey(), cfg);
+
+  var ts=sess.savedAt?new Date(sess.savedAt).toLocaleString():'unknown';
+  setSyncStatus('saved','Restored — last saved '+ts);
+  window.scrollTo({top:0,behavior:'smooth'});
+
+  // Just hide the banner for this session — don't permanently dismiss
+  var banner=$('resume-banner'); if(banner) banner.classList.add('hidden');
+}
+
+/* ---- Resume banner (shown on page load) ---- */
+function checkResumeBanner(){
+  var url=getSheetUrl(); if(!url) return;
+  if(sessionStorage.getItem('ras_banner_dismissed')==='1') return;
+  var keys=getKnownSessionKeys(); if(!keys.length) return;
+  var cache=getSessionCache();
+  // Use the most-recently saved key (keys[0] is always newest due to unshift)
+  var key=keys[0];
+  var cached=cache[key];
+  var banner=$('resume-banner'); if(!banner) return;
+  var title=$('resume-banner-title');
+  var sub=$('resume-banner-sub');
+  var cfg=(cached&&cached.config)||{};
+  if(title) title.textContent='Resume: '+(cfg.instituteName||key);
+  // Show local cache time first, then update from sheet
+  if(sub){
+    var localTs=cached&&cached.savedAt?new Date(cached.savedAt).toLocaleString():'—';
+    sub.textContent=(cfg.group||'')+' • '+(cfg.instituteYear||'')+' • '+(cfg.studentCount||'?')+' students • Last saved: '+localTs;
+  }
+  banner.dataset.resumeKey=key;
+  banner.classList.remove('hidden');
+  // Silently fetch fresh savedAt from sheet to update the subtitle
+  fetch(url+'?action=loadSession&key='+encodeURIComponent(key),{cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data.found&&data.savedAt&&sub){
+        var freshTs=new Date(data.savedAt).toLocaleString();
+        sub.textContent=(cfg.group||'')+' • '+(cfg.instituteYear||'')+' • '+(cfg.studentCount||'?')+' students • Last saved: '+freshTs;
+        // Update local cache with fresh timestamp
+        var c2=getSessionCache(); if(c2[key]) c2[key].savedAt=data.savedAt;
+        try{localStorage.setItem(LS_SESSION_CACHE,JSON.stringify(c2));}catch(e){}
+      }
+    })
+    .catch(function(){/* silent — banner still shows with cached info */});
+}
+
+function dismissResumeBanner(){
+  var banner=$('resume-banner'); if(banner) banner.classList.add('hidden');
+  // Only suppress banner until next save — don't permanently hide
+  sessionStorage.setItem('ras_banner_dismissed','1');
+}
+
+async function resumeFromBanner(){
+  var banner=$('resume-banner');
+  var key=banner?banner.dataset.resumeKey:'';
+  if(!key){ manualLoadSession(); return; }
+  var url=getSheetUrl(); if(!url){ alert('No sheet URL.'); return; }
+  var btn=$('resume-banner-btn');
+  if(btn) btn.textContent='Loading…';
+  try{
     var res=await fetch(url+'?action=loadSession&key='+encodeURIComponent(key),{cache:'no-store'});
     var data=await res.json();
     if(!data.found){
-      setSyncStatus('offline','No saved session found for this batch.');
-      alert('No saved session found for: '+key+'\n\nMake sure Institute Name, Group, and Year match exactly.');
+      alert('Session not found on sheet.\n\nKey: '+key+'\n\nPlease check that your Google Sheet has a "MarksSession" tab with data.');
+      if(btn) btn.textContent='↺ Resume Now';
       return;
     }
-    applyLoadedSession(data);
+    data._key=key;
+    restoreSession(data);
   }catch(err){
-    setSyncStatus('unsaved','Load failed: '+err.message);
-    alert('Could not reach Google Sheet: '+err.message);
+    alert('Could not reach Google Sheet:\n'+err.message);
+    if(btn) btn.textContent='↺ Resume Now';
   }
 }
 
-function applyLoadedSession(data){
-  // Restore students array (marks + rolls + roles)
-  var loaded=data.students||[];
-  if(!loaded.length){ alert('Saved session has no student data.'); return; }
-
-  // Merge loaded marks into appData.students (by index)
-  var count=Math.min(loaded.length, appData.studentCount);
-  for(var i=0;i<count;i++){
-    var src=loaded[i];
-    appData.students[i].roll    = src.roll    || appData.students[i].roll;
-    appData.students[i].marks   = src.marks   || {};
-    appData.students[i].subjectRoles = src.subjectRoles || {};
-  }
-
-  // Re-render the table to show loaded values
-  renderPage();
-  renderFsPage();
-
-  var ts=data.savedAt?new Date(data.savedAt).toLocaleString():'unknown time';
-  setSyncStatus('saved','Loaded — last saved '+ts);
-  alert('✅ Session loaded!\nSaved: '+ts+'\n\nMarks from your previous session are now in the table.');
-}
-
-/* Show/hide sync bar based on whether a sheet URL is configured */
+/* Show/hide sync bar */
 function updateSyncBarVisibility(){
   var bar=$('sync-bar'); if(!bar) return;
   var hasUrl=!!getSheetUrl();
   bar.style.display=hasUrl?'flex':'none';
-  if(hasUrl) setSyncStatus('offline','Connected — auto-saves after each entry');
+  if(hasUrl && !_sessionLastSaved) setSyncStatus('offline','Connected — auto-saves after each entry');
 }
+
 
 /* ============================================================
    ARCHIVE
@@ -1990,7 +2271,14 @@ async function downloadArchiveRecordPdf(){
 /* ============================================================
    INIT
 ============================================================ */
-function init(){ syncLetterhead();appData.unlockedStep=1;currentStep=1;renderStepper(); }
+function init(){
+  syncLetterhead();
+  appData.unlockedStep=1;
+  currentStep=1;
+  renderStepper();
+  // Show resume banner if saved sessions exist
+  checkResumeBanner();
+}
 init();
 </script>
 </body>

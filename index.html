@@ -432,13 +432,14 @@ table.merit tbody tr:hover td{background:var(--paper);}
             <thead><tr>
               <th id="th-rank">Rank</th>
               <th id="th-roll">Roll No</th>
-              <th id="th-total">Total Marks</th>
+              <th id="th-total">Total Marks <span style="color:#e11d48;">&#9733;</span></th>
               <th>GPA</th>
               <th id="th-status">Status</th>
             </tr></thead>
             <tbody id="merit-list-tbody"></tbody>
           </table>
         </div>
+        <div id="merit-footnote" style="font-size:.68rem;color:var(--muted-2);margin-top:8px;"><span style="color:#e11d48;font-weight:800;">&#9733;</span> <span id="lbl-footnote-excl">Total marks exclude the optional (4th) subject's marks.</span></div>
       </div>
 
       <div id="card-col" class="card">
@@ -461,9 +462,10 @@ table.merit tbody tr:hover td{background:var(--paper);}
             </div>
             <div id="card-subject-rows"></div>
             <div class="gpa-box-row">
-              <div class="gpa-box"><span class="gl" id="lbl-total-score">Total Score</span><span class="gv num" id="card-total-marks">0</span></div>
+              <div class="gpa-box"><span class="gl" id="lbl-total-score">Total Score <span style="color:#e11d48;">&#9733;</span></span><span class="gv num" id="card-total-marks">0</span></div>
               <div class="gpa-box gold"><span class="gl">GPA</span><span class="gv num" id="card-final-gpa">0.00</span></div>
             </div>
+            <div id="card-footnote" style="font-size:.65rem;color:var(--muted-2);margin-top:8px;text-align:center;"><span style="color:#e11d48;font-weight:800;">&#9733;</span> <span id="lbl-footnote-excl-2">Total score excludes the optional (4th) subject's marks.</span></div>
           </div>
           <div class="no-print" style="margin-top:14px;display:flex;justify-content:center;">
             <button onclick="printSingleReportCard()" class="btn btn-soft btn-sm">&#128424;&#65039; <span id="lbl-print-card">Print / Save as PDF</span></button>
@@ -752,6 +754,8 @@ var STRINGS={
     noticeResults:'Results generated. Go back to correct entries, then recalculate.',
     lMeritTitle:'Tabular Merit List',lExportPdf:'Export PDF',lExportExcel:'Export Excel',
     thRank:'Rank',thRoll:'Roll No',thTotal:'Total Marks',thStatus:'Status',
+    footnoteExcl:"Total marks exclude the optional (4th) subject's marks.",
+    footnoteExclCard:"Total score excludes the optional (4th) subject's marks.",
     lReportCards:'Student Report Cards',lZipBtn:'Download All Transcripts (.ZIP)',
     lSelRoll:'Select Individual Roll',lTotalScore:'Total Score',
     lPrintCard:'Print / Save as PDF',
@@ -797,6 +801,8 @@ var STRINGS={
     noticeResults:'ফলাফল তৈরি হয়েছে। এন্ট্রি সংশোধন করতে পিছে যান, তারপর পুনরায় হিসাব করুন।',
     lMeritTitle:'মেধা তালিকা',lExportPdf:'PDF ডাউনলোড',lExportExcel:'Excel ডাউনলোড',
     thRank:'ক্রম',thRoll:'রোল নং',thTotal:'মোট নম্বর',thStatus:'ফলাফল',
+    footnoteExcl:'মোট নম্বরে ঐচ্ছিক (৪র্থ) বিষয়ের নম্বর অন্তর্ভুক্ত নয়।',
+    footnoteExclCard:'মোট স্কোরে ঐচ্ছিক (৪র্থ) বিষয়ের নম্বর অন্তর্ভুক্ত নয়।',
     lReportCards:'শিক্ষার্থীর ট্রান্সক্রিপ্ট',lZipBtn:'সব ট্রান্সক্রিপ্ট ডাউনলোড করুন (.ZIP)',
     lSelRoll:'একক রোল নির্বাচন করুন',lTotalScore:'মোট নম্বর',
     lPrintCard:'🖨️ প্রিন্ট / PDF সংরক্ষণ',
@@ -877,9 +883,10 @@ function applyStaticStrings(){
   setText('lbl-back-s3',m('btnS3Back'));
   setText('notice-results',m('noticeResults'));
   setText('lbl-merit-title',m('lMeritTitle'));  setText('lbl-export-pdf',m('lExportPdf'));  setText('lbl-export-excel',m('lExportExcel'));
-  setText('th-rank',m('thRank'));  setText('th-roll',m('thRoll'));  setText('th-total',m('thTotal'));  setText('th-status',m('thStatus'));
+  setText('th-rank',m('thRank'));  setText('th-roll',m('thRoll'));  setHTML('th-total',m('thTotal')+' <span style="color:#e11d48;">&#9733;</span>');  setText('th-status',m('thStatus'));
   setText('lbl-report-cards',m('lReportCards'));  setText('lbl-zip-btn',m('lZipBtn'));
-  setText('lbl-sel-roll',m('lSelRoll'));  setText('lbl-total-score',m('lTotalScore'));
+  setText('lbl-sel-roll',m('lSelRoll'));  setHTML('lbl-total-score',m('lTotalScore')+' <span style="color:#e11d48;">&#9733;</span>');
+  setText('lbl-footnote-excl',m('footnoteExcl'));  setText('lbl-footnote-excl-2',m('footnoteExclCard'));
   setText('lbl-print-card',m('lPrintCard'));
   setText('lbl-roll-no',m('lbnRollNo'));
   setText('report-card-placeholder',m('placeholderText'));
@@ -1386,7 +1393,7 @@ function printSingleReportCard(){
 ============================================================ */
 function exportMeritAsExcel(){
   if(!appData.calculatedResults.length){alert('No results yet!');return;}
-  var rows=[['Rank','Roll No','Total Marks','GPA','Status']];
+  var rows=[['Rank','Roll No','Total Marks *','GPA','Status']];
   var rank=1;
   appData.calculatedResults.forEach(function(st){
     var sl=statusLabel(st);
@@ -1394,6 +1401,8 @@ function exportMeritAsExcel(){
     rows.push([isPassed?rank:'–',st.roll,st.totalMarksObtained,parseFloat(st.finalGpa.toFixed(2)),sl]);
     if(isPassed)rank++;
   });
+  rows.push([]);
+  rows.push(["* Total marks exclude the optional (4th) subject's marks."]);
   var ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:6},{wch:14},{wch:14},{wch:8},{wch:14}];
   var wb=XLSX.utils.book_new();
@@ -1617,13 +1626,15 @@ function buildTranscriptPdfDoc(student, ctx){
   doc.setFillColor(238,241,246);doc.setDrawColor(220,225,236);doc.setLineWidth(0.25);
   doc.roundedRect(M,y,halfW,18,2,2,'FD');
   if(isBn){
-    var totalScoreLbl=s('lTotalScore');
+    var totalScoreLbl=s('lTotalScore')+' \u2605';
     var totalScoreVal=toBn(String(student.totalMarksObtained));
     pngTextCenterBaseline(totalScoreLbl,6,'normal',M+halfW/2,y+6,'#8B93A7');
     pngTextCenterBaseline(totalScoreVal,13,'700',M+halfW/2,y+14,'#0F1828');
   }else{
     doc.setTextColor(92,100,120);doc.setFont('helvetica','normal');doc.setFontSize(6);
     doc.text('TOTAL SCORE',M+halfW/2,y+6,{align:'center'});
+    doc.setTextColor(220,38,68);doc.setFont('helvetica','bold');doc.setFontSize(6);
+    doc.text('\u2605',M+halfW/2+13,y+6,{align:'center'});
     doc.setTextColor(15,24,40);doc.setFont('helvetica','bold');doc.setFontSize(13);
     doc.text(String(student.totalMarksObtained),M+halfW/2,y+14,{align:'center'});
   }
@@ -1641,6 +1652,17 @@ function buildTranscriptPdfDoc(student, ctx){
     doc.text('GPA',gx+halfW/2,y+6,{align:'center'});
     doc.setFont('helvetica','bold');doc.setFontSize(13);
     doc.text(student.finalGpa.toFixed(2),gx+halfW/2,y+14,{align:'center'});
+  }
+
+  /* ---- FOOTNOTE ---- */
+  y+=18+6;
+  if(y>285){doc.addPage();y=M;}
+  if(isBn){
+    var footNote='\u2605 '+s('footnoteExclCard');
+    pngTextBaseline(footNote,6.5,'normal',M,y,'#B91C3C');
+  }else{
+    doc.setTextColor(185,28,60);doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+    doc.text('\u2605 TOTAL SCORE EXCLUDES THE OPTIONAL (4TH) SUBJECT\'S MARKS.',M,y);
   }
 
   return doc;
@@ -2166,7 +2188,7 @@ function exportArchiveAsPdf(){
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(180,195,220);
   doc.text((appData.instituteName||'')+'  |  '+appData.group+'  |  '+appData.instituteYear,W-M,14,{align:'right'});
   y=30;
-  var cols=[{l:'Roll No',w:26},{l:'Institute',w:52},{l:'Year',w:20},{l:'Group',w:22},{l:'Total',w:18},{l:'GPA',w:14},{l:'Status',w:20}];
+  var cols=[{l:'Roll No',w:26},{l:'Institute',w:52},{l:'Year',w:20},{l:'Group',w:22},{l:'Total *',w:18},{l:'GPA',w:14},{l:'Status',w:20}];
   var xStart=M;
   doc.setFillColor(238,241,246);doc.rect(M,y-5,W-M*2,9,'F');
   doc.setTextColor(28,43,74);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
@@ -2181,15 +2203,21 @@ function exportArchiveAsPdf(){
     });
     y+=6;
   });
+  if(y>278){doc.addPage();y=M+10;}
+  y+=4;
+  doc.setTextColor(185,28,60);doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+  doc.text('* Total marks exclude the optional (4th) subject\'s marks.',M,y);
   doc.save('ArchiveExport_'+(appData.instituteName||'Institute').replace(/\s+/g,'_')+'.pdf');
 }
 
 function exportArchiveAsExcel(){
   if(!lastArchiveResults.length){alert('No search results to export. Please search first.');return;}
-  var rows=[['Roll No','Institute','Year','Group','Total Marks','GPA','Status']];
+  var rows=[['Roll No','Institute','Year','Group','Total Marks *','GPA','Status']];
   lastArchiveResults.forEach(function(rec){
     rows.push([rec.roll,rec.instituteName||'',rec.year||'',rec.group||'',rec.totalMarksObtained,parseFloat(Number(rec.finalGpa).toFixed(2)),rec.status||'']);
   });
+  rows.push([]);
+  rows.push(["* Total marks exclude the optional (4th) subject's marks."]);
   var ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[{wch:12},{wch:28},{wch:12},{wch:12},{wch:14},{wch:8},{wch:12}];
   var wb=XLSX.utils.book_new();
@@ -2281,5 +2309,8 @@ function init(){
 }
 init();
 </script>
+<footer class="no-print" style="text-align:center;padding:14px 10px 18px;font-size:.72rem;color:var(--muted-2,#888);letter-spacing:.2px;">
+  &copy; all rights reserved to MD. MUJAHIDUL ISLAM NAIM
+</footer>
 </body>
 </html>

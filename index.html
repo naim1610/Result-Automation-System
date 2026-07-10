@@ -1633,8 +1633,8 @@ function buildTranscriptPdfDoc(student, ctx){
   }else{
     doc.setTextColor(92,100,120);doc.setFont('helvetica','normal');doc.setFontSize(6);
     doc.text('TOTAL SCORE',M+halfW/2,y+6,{align:'center'});
-    doc.setTextColor(220,38,68);doc.setFont('helvetica','bold');doc.setFontSize(6);
-    doc.text('\u2605',M+halfW/2+13,y+6,{align:'center'});
+    doc.setTextColor(220,38,68);doc.setFont('helvetica','bold');doc.setFontSize(7);
+    doc.text('*',M+halfW/2+13,y+6,{align:'center'});
     doc.setTextColor(15,24,40);doc.setFont('helvetica','bold');doc.setFontSize(13);
     doc.text(String(student.totalMarksObtained),M+halfW/2,y+14,{align:'center'});
   }
@@ -1662,7 +1662,7 @@ function buildTranscriptPdfDoc(student, ctx){
     pngTextBaseline(footNote,6.5,'normal',M,y,'#B91C3C');
   }else{
     doc.setTextColor(185,28,60);doc.setFont('helvetica','normal');doc.setFontSize(6.5);
-    doc.text('\u2605 TOTAL SCORE EXCLUDES THE OPTIONAL (4TH) SUBJECT\'S MARKS.',M,y);
+    doc.text('* TOTAL SCORE EXCLUDES THE OPTIONAL (4TH) SUBJECT\'S MARKS.',M,y);
   }
 
   return doc;
